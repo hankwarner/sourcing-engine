@@ -7,11 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FergusonSourcingEngine", "F
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FergusonSourcingEngine.Tests", "FergusonSourcingEngine.Tests\FergusonSourcingEngine.Tests.csproj", "{609F5D13-B905-40F3-8FC1-05B9A971C1E8}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FergusonSourcingDashboard", "FergusonSourcingEngineDashboard\FergusonSourcingDashboard.csproj", "{C434BC9D-F870-460A-9DD5-677CABACDF8D}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FergusonSourcingCore", "FergusonSourcingEngineCore\FergusonSourcingCore.csproj", "{29549749-0D1C-4A93-B54F-5822F87A0E50}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FergusonSourcingDashboard.Tests", "FergusonSourcingEngineDashboard.Tests\FergusonSourcingDashboard.Tests.csproj", "{4A6A5083-B7DF-41F9-884D-F30A945DF173}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
