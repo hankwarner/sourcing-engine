@@ -457,58 +457,58 @@ namespace FergusonSourcingEngine
         /// <summary>
         ///     Ensures that orders are consistenly flowing from ATG. If no order has come in the last two hours, Sourcing team will be alerted.
         /// </summary>
-        [SwaggerIgnore]
-        [FunctionName("MonitorIncomingOrders")]
-        public static void MonitorIncomingOrders(
-            [HttpTrigger(AuthorizationLevel.Function, "get")] HttpRequest req,
-            [CosmosDB(ConnectionStringSetting = "AzureCosmosDBConnectionString"), SwaggerIgnore] DocumentClient documentClient,
-            ILogger log)
-        {
-            try
-            {
-                var currentHour = DateTime.Now.Hour;
-                log.LogInformation($"Current Hour: {currentHour}");
+        //[SwaggerIgnore]
+        //[FunctionName("MonitorIncomingOrders")]
+        //public static void MonitorIncomingOrders(
+        //    [HttpTrigger(AuthorizationLevel.Function, "get")] HttpRequest req,
+        //    [CosmosDB(ConnectionStringSetting = "AzureCosmosDBConnectionString"), SwaggerIgnore] DocumentClient documentClient,
+        //    ILogger log)
+        //{
+        //    try
+        //    {
+        //        var currentHour = DateTime.Now.Hour;
+        //        log.LogInformation($"Current Hour: {currentHour}");
 
-                // Only run within 4am - 10pm EST. 4am EST == 08:00 UTC and 10pm EST == 02:00 UTC
-                if (currentHour < 8 && currentHour > 1) return;
+        //        // Only run within 4am - 10pm EST. 4am EST == 08:00 UTC and 10pm EST == 02:00 UTC
+        //        if (currentHour < 8 && currentHour > 1) return;
 
-                // Get the most recent order
-                var ordersCollectionUri = UriFactory.CreateDocumentCollectionUri("sourcing-engine", "orders");
-                var query = new SqlQuerySpec
-                {
-                    QueryText = "SELECT TOP 1 * FROM c ORDER BY c.lastModifiedDate DESC"
-                };
+        //        // Get the most recent order
+        //        var ordersCollectionUri = UriFactory.CreateDocumentCollectionUri("sourcing-engine", "orders");
+        //        var query = new SqlQuerySpec
+        //        {
+        //            QueryText = "SELECT TOP 1 * FROM c ORDER BY c.lastModifiedDate DESC"
+        //        };
 
-                var mostRecentOrderDoc = documentClient.CreateDocumentQuery<Document>(ordersCollectionUri, query, option)
-                    .AsEnumerable().FirstOrDefault();
+        //        var mostRecentOrderDoc = documentClient.CreateDocumentQuery<Document>(ordersCollectionUri, query, option)
+        //            .AsEnumerable().FirstOrDefault();
 
-                AtgOrderRes mostRecentOrder = (dynamic)mostRecentOrderDoc;
-                log.LogInformation(@"Most Recent Order: {MostRecentOrder}", mostRecentOrder);
+        //        AtgOrderRes mostRecentOrder = (dynamic)mostRecentOrderDoc;
+        //        log.LogInformation(@"Most Recent Order: {MostRecentOrder}", mostRecentOrder);
 
-                // Check that order came in within last two hours
-                if (mostRecentOrder.lastModifiedDate > DateTime.Now.AddHours(-2))
-                {
-                    log.LogInformation("Most recent order is within two hour threshold.");
-                }
-                else
-                {
-                    var title = "No Orders within Last Two Hours";
-                    var text = "Warning: no orders have been received from Ferguson in the last two hours.";
-                    var teamsMessage = new TeamsMessage(title, text, "yellow", sourcingTeamLogsUrl);
-                    teamsMessage.LogToTeams(teamsMessage);
-                    log.LogInformation("Teams message sent.");
-                }
-            }
-            catch (Exception ex)
-            {
-                var title = "Error in MonitorIncomingOrders";
-                var text = $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
-                var teamsMessage = new TeamsMessage(title, text, "red", errorLogsUrl);
-                teamsMessage.LogToTeams(teamsMessage);
+        //        // Check that order came in within last two hours
+        //        if (mostRecentOrder.lastModifiedDate > DateTime.Now.AddHours(-2))
+        //        {
+        //            log.LogInformation("Most recent order is within two hour threshold.");
+        //        }
+        //        else
+        //        {
+        //            var title = "No Orders within Last Two Hours";
+        //            var text = "Warning: no orders have been received from Ferguson in the last two hours.";
+        //            var teamsMessage = new TeamsMessage(title, text, "yellow", sourcingTeamLogsUrl);
+        //            teamsMessage.LogToTeams(teamsMessage);
+        //            log.LogInformation("Teams message sent.");
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        var title = "Error in MonitorIncomingOrders";
+        //        var text = $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
+        //        var teamsMessage = new TeamsMessage(title, text, "red", errorLogsUrl);
+        //        teamsMessage.LogToTeams(teamsMessage);
 
-                log.LogError(@"Error in MonitorIncomingOrders: {E}", ex);
-            }
-        }
+        //        log.LogError(@"Error in MonitorIncomingOrders: {E}", ex);
+        //    }
+        //}
 #endif
 
         /// <summary>
