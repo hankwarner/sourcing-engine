@@ -65,7 +65,7 @@ namespace FergusonSourcingEngine.Controllers
             {
                 var title = "Error in StartSourcing";
                 var text = $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
-                var teamsMessage = new TeamsMessage(title, text, "red", SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
 
                 _logger.LogError(ex, title);
@@ -143,7 +143,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "KeyNotFoundException in SourceOrder";
                 var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "red";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
                 _logger.LogError(title);
             }
@@ -152,7 +152,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Exception in SourceOrder";
                 var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "red";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
                 _logger.LogError(title);
                 throw;
@@ -199,7 +199,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Error in RunSourcingEngine";
                 var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "red";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
                 _logger.LogError(title);
             }
@@ -222,7 +222,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Error in SetSourcingMessageOnOrder";
                 var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "red";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
             }
         }
@@ -272,7 +272,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Error in SetOrderLevelMessaging";
                 var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "yellow";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
             }
         }
@@ -369,7 +369,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Error in SetItemLevelMessaging";
                 var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "yellow";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
             }
         }
@@ -431,7 +431,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "KeyNotFoundException in GroupBySourcingGuide";
                 var text = $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "red";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
                 _logger.LogError(title);
                 throw;
@@ -470,7 +470,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Error in SourceByLine";
                 var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "red";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
                 throw;
             }
@@ -532,7 +532,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Exception in SetShipFromOnLine";
                 var text = $"MPN: {orderItem.masterProdId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "yellow";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
 
                 return false;
@@ -570,7 +570,7 @@ namespace FergusonSourcingEngine.Controllers
                 var teamsMessage = new TeamsMessage(
                     "Exception in BackOrderToClosestStockingLocation",
                     $"Order ID: {atgOrderRes.id}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", 
-                    "yellow", SourcingEngine.errorLogsUrl);
+                    "yellow", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
             }
         }
@@ -711,7 +711,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Error in SourceLinesComplete";
                 var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "red";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
                 throw;
             }
@@ -757,7 +757,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Error in SourcePickupOrders";
                 var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "red";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
                 _logger.LogError(title);
             }
@@ -809,7 +809,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Error in ValidatePickupInventory";
                 var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "yellow";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
             }
 
@@ -860,7 +860,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Error in SetShipFromOnSODLines";
                 var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "red";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
             }
         }
@@ -886,7 +886,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Error in ResetMultiLineInventoryQuantities";
                 var text = $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "yellow";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
             }
         }
@@ -941,7 +941,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Error in GetEstimatedShippingCostOfOrder";
                 var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "red";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
                 _logger.LogError(title);
             }
@@ -998,7 +998,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Error in GetCommonLocations";
                 var text = $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "red";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
             }
 
@@ -1036,7 +1036,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Error in GetClosestStockingLocation";
                 var text = $"Error message: {ex.Message}";
                 var color = "red";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
                 throw;
             }
@@ -1126,7 +1126,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Error in SetShipFromLocationAndBackOrderQuantity";
                 var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "red";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
             }
         }
@@ -1162,7 +1162,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Error in BackOrderToLocation";
                 var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "red";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
             }
         }
@@ -1207,7 +1207,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Error in LogLocationAndItemInventory";
                 var text = $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "yellow";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
             }
         }
@@ -1246,7 +1246,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Error in SetVendorOnOrderLines";
                 var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var color = "yellow";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
             }
         }

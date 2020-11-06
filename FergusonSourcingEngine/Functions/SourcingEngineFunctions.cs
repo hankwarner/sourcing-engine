@@ -19,7 +19,7 @@ using FergusonSourcingCore.Models;
 
 namespace FergusonSourcingEngine
 {
-    public class SourcingEngine
+    public class SourcingEngineFunctions
     {
         public static FeedOptions option = new FeedOptions { EnableCrossPartitionQuery = true };
         public static string ordersContainerName = Environment.GetEnvironmentVariable("ORDERS_CONTAINER_NAME");
@@ -28,7 +28,7 @@ namespace FergusonSourcingEngine
         public static string manualOrderscontainerName = Environment.GetEnvironmentVariable("MANUAL_ORDERS_CONTAINER_NAME");
         public static IConfiguration _config { get; set; }
 
-        public SourcingEngine(IConfiguration config)
+        public SourcingEngineFunctions(IConfiguration config)
         {
             _config = config;
         }
