@@ -3,7 +3,18 @@ Azure HTTP functions to provide order sourcing information based on customer shi
 
 # Open API Definitions
 
-https://fergusonsourcingengine.azurewebsites.net/api/swagger/ui?code=yHPrDXb5SyiWqMaA74va2ZGr/cPQs/Bzj7SWuVKlvb1Gc8PWBjXIjg==
+https://sourcing-engine.azurewebsites.net/api/swagger/ui?code=n3yCngJqMFOHkAMQi8MINBfLbCTpMs0PlbGj1S7TRQfnXNgg5xXGmA==&clientId=apim-sourcing-engine-apim
+
+
+# CI/CD workflow and Pull Request instructions
+
+1. Create a new branch with a name suitable for the code being added/refactored.
+
+2. Send initial pull request to the **test** branch. Once merged, a build & deploy action in **Debug** configuration will be triggered to the _sourcing-engine-test_ function app. OpenAPI defintion here: https://sourcing-engine-test.azurewebsites.net/api/swagger/ui?code=9pvEciom6lartFkgZsm9Jq6Ro2QR2s9eSvPvXDBx8LpdFOjHLQ88LQ==
+
+3. Once approved in test, the next pull request should be sent to the **staging** branch. Once merged, a build & deploy action in **Release** configuration will be triggered to the _sourcing-microservices_ staging environment (a deployment slot in the production function app). OpenAPI defintion here: https://sourcing-engine-staging.azurewebsites.net/api/swagger/ui?code=lQ61oPal80lcseqFJgaf6XhgDAURJWsy3fZsbJ1enadD4kp1JGimZA==
+
+4. Once approved in staging, the final pull request should be sent to the **master** branch. Once merged, a build & deploy action in **Release** configuration will be triggered to the _sourcing-microservices_ production environment. OpenAPI defintion in section above.
 
 
 # SourceOrderFromSite
