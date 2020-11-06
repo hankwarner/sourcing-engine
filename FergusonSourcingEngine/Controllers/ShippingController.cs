@@ -30,7 +30,7 @@ namespace FergusonSourcingEngine.Controllers
 
                 if (count == 5)
                 {
-                    var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "yellow", SourcingEngine.errorLogsUrl);
+                    var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "yellow", SourcingEngineFunctions.errorLogsUrl);
                     teamsMessage.LogToTeams(teamsMessage);
                     _logger.LogError(ex, title);
                 }
@@ -127,7 +127,7 @@ namespace FergusonSourcingEngine.Controllers
             catch(Exception ex)
             {
                 var title = "Error in GetCumulativeItemWeight";
-                var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "yellow", SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "yellow", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
                 _logger.LogError(ex, title);
             }

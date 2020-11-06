@@ -77,7 +77,7 @@ namespace FergusonSourcingEngine.Controllers
             catch (Exception ex)
             {
                 var title = "Error in InitializeLocations";
-                var teamsMessage = new TeamsMessage(title, $"Order Id: {atgOrderRes.atgOrderId}. Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, $"Order Id: {atgOrderRes.atgOrderId}. Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
                 _logger.LogError(title);
                 throw;
@@ -98,7 +98,7 @@ namespace FergusonSourcingEngine.Controllers
             catch(Exception ex)
             {
                 var title = "Error in ValidateSellWarehouse";
-                var teamsMessage = new TeamsMessage(title, $"Order Id: {atgOrderRes.atgOrderId}. Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, $"Order Id: {atgOrderRes.atgOrderId}. Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
                 _logger.LogError(title);
             }
@@ -151,7 +151,7 @@ namespace FergusonSourcingEngine.Controllers
 
                 if (count == 5)
                 {
-                    var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngine.errorLogsUrl);
+                    var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                     teamsMessage.LogToTeams(teamsMessage);
                     _logger.LogError(ex, title);
                 }
@@ -204,7 +204,7 @@ namespace FergusonSourcingEngine.Controllers
                 {
                     var text = $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                     var color = "red";
-                    var teamsMessage = new TeamsMessage(errorTitle, text, color, SourcingEngine.errorLogsUrl);
+                    var teamsMessage = new TeamsMessage(errorTitle, text, color, SourcingEngineFunctions.errorLogsUrl);
                     teamsMessage.LogToTeams(teamsMessage);
                     _logger.LogError(ex, errorTitle);
                 }
@@ -250,7 +250,7 @@ namespace FergusonSourcingEngine.Controllers
 
                 if (count == 10)
                 {
-                    var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngine.errorLogsUrl);
+                    var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                     teamsMessage.LogToTeams(teamsMessage);
                     _logger.LogError(ex, title);
                 }
@@ -346,7 +346,7 @@ namespace FergusonSourcingEngine.Controllers
             catch (Exception ex)
             {
                 var title = "Error in AddDistanceDataToLocationDict";
-                var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
                 throw;
             }
@@ -607,7 +607,7 @@ namespace FergusonSourcingEngine.Controllers
             catch(Exception ex)
             {
                 var title = "Error in SetLineLocationsAndRequirements";
-                var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
             }
         }
