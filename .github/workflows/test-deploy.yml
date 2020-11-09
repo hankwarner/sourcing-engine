@@ -37,8 +37,8 @@ jobs:
         package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output'
         publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE_TEST }}
     - name: Create Pull Request to Next Branch in Pipeline
-        uses: peter-evans/create-pull-request@v3
-        id: cpr
-        with:
-            base: staging
-            branch: test
+      id: cpr
+      uses: peter-evans/create-pull-request@v3
+      with:
+        base: staging
+        branch: test
