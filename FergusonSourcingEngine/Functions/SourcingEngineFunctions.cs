@@ -309,10 +309,10 @@ namespace FergusonSourcingEngine
             [CosmosDB(ConnectionStringSetting = "AzureCosmosDBConnectionString"), SwaggerIgnore] DocumentClient documentClient,
             ILogger log)
         {
-            // Get orders within past two hours in atg-orders container that are not in the orders container
+            // Get orders within past 3 days in atg-orders container that are not in the orders container
             var query = new SqlQuerySpec
             {
-                QueryText = "SELECT VALUE c FROM c WHERE c.lastModifiedDate > DateTimeAdd(\"hh\", -2, GetCurrentDateTime())"
+                QueryText = "SELECT VALUE c FROM c WHERE c.lastModifiedDate > DateTimeAdd(\"dd\", -03, GetCurrentDateTime())"
             };
 
             var ordersCollectionUri = UriFactory.CreateDocumentCollectionUri("sourcing-engine", "orders");
@@ -386,12 +386,6 @@ namespace FergusonSourcingEngine
         {
             try
             {
-                log.LogInformation("Program started.");
-                var t = "SourceStaleOrders";
-                var txt = "SourceStaleOrders started";
-                var tm = new TeamsMessage(t, txt, "green", errorLogsUrl);
-                tm.LogToTeams(tm);
-
                 var manualOrderscontainerName = Environment.GetEnvironmentVariable("MANUAL_ORDERS_CONTAINER_NAME");
                 var manualOrdersCollectionUri = UriFactory.CreateDocumentCollectionUri("sourcing-engine", manualOrderscontainerName);
 
