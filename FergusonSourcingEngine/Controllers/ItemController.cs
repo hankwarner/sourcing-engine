@@ -169,6 +169,7 @@ namespace FergusonSourcingEngine.Controllers
                     var mpn = int.Parse(item.masterProdId);
 
                     item.itemDescription = items.ItemDict[mpn].ItemDescription;
+                    item.alt1Code = items.ItemDict[mpn].ALT1Code;
 
                     SetItemShippingValues(item, mpn);
                 });

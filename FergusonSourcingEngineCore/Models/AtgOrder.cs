@@ -93,6 +93,7 @@ namespace FergusonSourcingCore.Models
         public string shipFromLogon { get; set; }
         public string sourcingGuide { get; set; }
         public string itemDescription { get; set; }
+        public string alt1Code { get; set; }
         [JsonIgnore]
         public string preferredShippingMethod { get; set; }
         public string preferredShipVia { get; set; } // Trilogie Ship Via code
