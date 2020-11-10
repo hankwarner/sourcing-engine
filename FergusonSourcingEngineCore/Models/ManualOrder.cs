@@ -90,6 +90,7 @@ namespace FergusonSourcingCore.Models
         public string sourcingGuide { get; set; }
         public string vendor { get; set; }
         public string preferredShipVia { get; set; }
+        public string alt1Code { get; set; }
     }
 
 }
