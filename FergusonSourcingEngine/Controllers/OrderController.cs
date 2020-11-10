@@ -168,7 +168,8 @@ namespace FergusonSourcingEngine.Controllers
                             itemComplete = false,
                             sourcingGuide = item.sourcingGuide,
                             vendor = item.vendor,
-                            preferredShipVia = item.preferredShipVia
+                            preferredShipVia = item.preferredShipVia,
+                            alt1Code = item.alt1Code
                         }).ToList()
                     }).ToList()
             };
