@@ -168,7 +168,8 @@ namespace FergusonSourcingEngine.Controllers
                             itemComplete = false,
                             sourcingGuide = item.sourcingGuide,
                             vendor = item.vendor,
-                            preferredShipVia = item.preferredShipVia
+                            preferredShipVia = item.preferredShipVia,
+                            alt1Code = item.alt1Code
                         }).ToList()
                     }).ToList()
             };
@@ -185,13 +186,6 @@ namespace FergusonSourcingEngine.Controllers
                 {
                     source.shipFromLogon = locationController.GetBranchLogonID(branchNum);
                 }
-
-                source.items.ForEach(item =>
-                {
-                    var orderItem = GetOrderItemByLineId(item.lineItemId, order);
-
-                    item.alt1Code = orderItem.alt1Code;
-                });
             });
 
             _logger.LogInformation("CreateManualOrder finish");
