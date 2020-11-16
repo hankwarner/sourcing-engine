@@ -4,6 +4,7 @@ using System.Text;
 
 namespace FergusonSourcingCore.Models
 {
+#if RELEASE
     public class ShipQuoteRequest
     {
         public Package package { get; set; }
@@ -30,4 +31,23 @@ namespace FergusonSourcingCore.Models
     {
         public Dictionary<string, double> rates { get; set; }
     }
+#endif
+#if DEBUG
+    public class ShipQuoteRequest
+    {
+        public string RateType { get; set; }
+
+        public ShippingAddress DestinationAddress { get; set; }
+
+        public ShippingAddress OriginAddress { get; set; }
+
+        public Package Package { get; set; }
+    }
+
+
+    public class Package
+    {
+        public double Weight { get; set; }
+    }
+#endif
 }
