@@ -38,6 +38,7 @@ namespace FergusonSourcingEngine.Controllers
 
             return retryPolicy.Execute(() =>
             {
+#if RELEASE
                 var rate = 15.00;
 
                 var requestBody = new ShipQuoteRequest
@@ -108,33 +109,89 @@ namespace FergusonSourcingEngine.Controllers
                 rate = parsedResponse.rates.Where(r => r.Key.Contains(rateKey)).Select(r => r.Value).FirstOrDefault();
 
                 _logger.LogInformation($"Branch {shipFrom.branchNumber} Estimated Shipping Cost: {rate}");
+#endif
+#if DEBUG
+                var requestBody = new ShipQuoteRequest
+                {
+                    RateType = "Ground", // Default to Ground unless shipping next day or second day
+                    OriginAddress = shipFrom,
+                    DestinationAddress = shipTo,
+                    Package = new Package()
+                    {
+                        Weight = weight
+                    }
+                };
 
+                if (atgOrderRes.shipping.shipViaCode == "SECOND_DAY")
+                {
+                    requestBody.RateType = "Second Day Air";
+                }
+                else if (atgOrderRes.shipping.shipViaCode == "NEXT_DAY")
+                {
+                    requestBody.RateType = "Next Day Air";
+                }
+
+                var jsonRequest = JsonConvert.SerializeObject(requestBody);
+
+                var url = "https://ups-microservices.azurewebsites.net/api/rating";
+                var query = "?code=" + Environment.GetEnvironmentVariable("QUOTE_SHIPMENT_KEY");
+
+                var client = new RestClient(url + query);
+
+                var request = new RestRequest(Method.POST)
+                    .AddHeader("Content-Type", "application/json")
+                    .AddParameter("application/json; charset=utf-8", jsonRequest, ParameterType.RequestBody);
+
+                var response = client.Execute(request);
+
+                if (response.StatusCode.Equals(400) || response.StatusCode.Equals(400))
+                {
+                    _logger.LogError(@"Response status code: {StatusCode}. Response: {Response}", response.StatusCode, response);
+                    throw new ArgumentException("Est Shipping Cost returned bad request object.");
+                }
+
+                double.TryParse(response.Content, out double rate);
+                _logger.LogInformation($"Branch {shipFrom.branchNumber} Estimated Shipping Cost: {rate}");
+
+                if (rate == 0)
+                {
+                    var errorTitle = "Warning in EstimateShippingCost.";
+                    var message = "Ship Quote returned $0 estimate.";
+                    var teamsMessage = new TeamsMessage(errorTitle, message, "yellow", SourcingEngineFunctions.errorLogsUrl);
+                    teamsMessage.LogToTeams(teamsMessage);
+                    _logger.LogWarning(message);
+                }
+#endif
                 return rate;
             });
         }
 
-
-        public double GetCumulativeItemWeight()
+#if DEBUG
+        public double GetCumulativeItemWeight(IGrouping<string, SingleLine> groupedLine)
         {
-            var cumulativeItemWeight = 0.0;
+            var totalItemWeight = 0.0;
 
             try
             {
-                var itemDict = itemController.items.ItemDict;
+                foreach (var line in groupedLine)
+                {
+                    var mpn = line.MasterProductNumber;
+                    var weight = itemController.items.ItemDict[mpn].Weight;
 
-                cumulativeItemWeight = itemDict.Sum(item => item.Value.Weight);
+                    totalItemWeight += weight;
+                }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                var title = "Error in GetCumulativeItemWeight";
-                var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "yellow", SourcingEngineFunctions.errorLogsUrl);
+                var errorTitle = "Error in GetCumulativeItemWeight";
+                var teamsMessage = new TeamsMessage(errorTitle, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "yellow", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
-                _logger.LogError(ex, title);
+                _logger.LogError(ex, errorTitle);
             }
 
-            return cumulativeItemWeight;
+            return totalItemWeight;
         }
-
+#endif
 
         /// <summary>
         ///     Determines how the item will ship based on the item preferred ship method and quantity.
