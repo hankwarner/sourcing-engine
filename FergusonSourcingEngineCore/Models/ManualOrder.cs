@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
-using System.Linq;
+﻿using System.Collections.Generic;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
 
 namespace FergusonSourcingCore.Models
 {
@@ -21,7 +16,9 @@ namespace FergusonSourcingCore.Models
         public string sourcingMessage { get; set; }
         public string processOrderType { get; set; }
         public bool claimed { get; set; }
+        public string timeClaimed { get; set; } = null;
         public bool orderComplete { get; set; }
+        public string timeCompleted { get; set; } = null;
         public ManualPaymentOnAccount paymentOnAccount { get; set; }
         public ManualShipping shipping { get; set; }
         public List<Sourcing> sourcing { get; set; }
@@ -48,7 +45,6 @@ namespace FergusonSourcingCore.Models
 
     public partial class ManualShipping
     {
-        // TODO: JsonIgnore this value once it's switched to shipVia
         public string shipViaCode { get; set; }
         public string shipVia { get; set; }
         public string price { get; set; }
