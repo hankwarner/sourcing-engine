@@ -12,7 +12,7 @@ namespace FergusonSourcingCore.Models
 
     public class SingleLine
     {
-        public SingleLine(int mpn, int quantity, int lineId, string sourcingGuide)
+        public SingleLine(string mpn, int quantity, int lineId, string sourcingGuide)
         {
             MasterProductNumber = mpn;
             Quantity = quantity;
@@ -20,7 +20,7 @@ namespace FergusonSourcingCore.Models
             SourcingGuide = sourcingGuide;
         }
         
-        public int MasterProductNumber { get; set; }
+        public string MasterProductNumber { get; set; }
 
         public int Quantity { get; set; }
 

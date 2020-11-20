@@ -107,9 +107,9 @@ namespace FergusonSourcingEngine.Controllers
         /// <param name="mpn">Master Product Number on the item.</param>
         /// <param name="quantity">Item quantity on the order.</param>
         /// <returns>true if line must be sourced from an overpack capable location.</returns>
-        public bool LineRequiresOverpackLocation(int mpn, int quantity, AtgOrderRes atgOrderRes)
+        public bool LineRequiresOverpackLocation(string mpn, int quantity, AtgOrderRes atgOrderRes)
         {
-            var item = atgOrderRes.items.FirstOrDefault(i => int.Parse(i.masterProdId) == mpn);
+            var item = atgOrderRes.items.FirstOrDefault(i => i.masterProdId == mpn);
             
             if (item?.preferredShippingMethod == "LTL") 
                 return false;

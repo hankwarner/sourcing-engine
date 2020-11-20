@@ -7,6 +7,7 @@ using Newtonsoft.Json.Linq;
 using RestSharp;
 using Polly;
 using Microsoft.Extensions.Logging;
+using System.Net;
 
 namespace FergusonSourcingEngine.Controllers
 {
@@ -14,7 +15,7 @@ namespace FergusonSourcingEngine.Controllers
     {
         public Inventory inventory = new Inventory();
         public AllItems items = new AllItems();
-        public List<int> mpns = new List<int>();
+        public List<string> mpns = new List<string>();
         public double cumulativeItemWeight { get; set; }
         private ILogger _logger;
 
@@ -24,6 +25,10 @@ namespace FergusonSourcingEngine.Controllers
         }
 
 
+        /// <summary>
+        ///     Calls the ItemMicroservice to build the item dictionary and stocking status dictionary.
+        /// </summary>
+        /// <param name="atgOrderRes">The ATG Order response that will be written to CosmosDB.</param>
         public void InitializeItems(AtgOrderRes atgOrderRes)
         {
             try
@@ -32,16 +37,20 @@ namespace FergusonSourcingEngine.Controllers
 
                 AddMPNs(atgOrderRes);
 
-                var itemDataResponse = GetItemDataByMPN();
+                var itemAndStockingData = GetItemAndStockingData();
 
-                // Write data from the response
-                AddItemDataToDict(itemDataResponse, atgOrderRes);
+                // Flag any items with no data
+                foreach(var item in itemAndStockingData.ItemDataDict)
+                {
+                    if (item.Value == null) 
+                        FlagInvalidMPN(item.Key, atgOrderRes);
+                }
+
+                items.ItemDict = itemAndStockingData.ItemDataDict;
 
                 SetItemDetailsOnOrder(atgOrderRes);
 
-                InitializeInventoryDict();
-
-                AddStockingStatusesToInventoryDict();
+                AddStockingStatusesToInventoryDict(itemAndStockingData.StockingStatusDict);
 
                 _logger.LogInformation("InitializeItems finish");
             }
@@ -56,14 +65,19 @@ namespace FergusonSourcingEngine.Controllers
         }
 
 
+        /// <summary>
+        ///     Initializes the MPNs global variable from the items on the ATG order.
+        /// </summary>
+        /// <param name="atgOrderRes">The ATG Order response that will be written to CosmosDB.</param>
         public void AddMPNs(AtgOrderRes atgOrderRes)
         {
             atgOrderRes.items.ForEach(item =>
             {
-                int.TryParse(item.masterProdId, out int mpn);
-                int.TryParse(item.quantity, out int quantity);
+                var mpn = item.masterProdId;
+                var qty = int.Parse(item.quantity);
 
-                if (mpn != 0 && quantity != 0) mpns.Add(mpn);
+                if (!string.IsNullOrEmpty(mpn) && qty != 0) 
+                    mpns.Add(mpn);
             });
 
             // If all items are missing MPN's, there is nothing further we can do
@@ -71,20 +85,15 @@ namespace FergusonSourcingEngine.Controllers
         }
 
 
-        public void InitializeInventoryDict()
-        {
-            var validMPNs = items.ItemDict.Select(x => x.Key).ToList();
-
-            // Create entries in the inventoryDict for each valid MPN
-            validMPNs.ForEach(mpn => inventory.InventoryDict.TryAdd(mpn, new ItemInventory()) );
-        }
-
-
-        public Dictionary<string, ItemData> GetItemDataByMPN()
+        /// <summary>
+        ///     Calls the ItemMicroservice to get item data (weight, guideline, vendor, etc.) and stocking status data.
+        /// </summary>
+        /// <returns>The item data response.</returns>
+        public ItemResponse GetItemAndStockingData()
         {
             var retryPolicy = Policy.Handle<Exception>().Retry(5, (ex, count) =>
             {
-                var title = "Error in GetItemDataByMPN";
+                var title = "Error in GetItemAndStockingData";
                 _logger.LogWarning($"{title}. Retrying...");
 
                 if (count == 5)
@@ -97,62 +106,25 @@ namespace FergusonSourcingEngine.Controllers
 
             return retryPolicy.Execute(() =>
             {
-                var requestBody = new List<int>(mpns.Select(x => x));
-                var jsonRequest = JsonConvert.SerializeObject(requestBody);
-
-                var url = @"https://service-sourcing.supply.com/api/v2/ItemData/GetItemDataByMPN";
-
+                var url = @"https://item-microservices.azurewebsites.net/api/item";
                 var client = new RestClient(url);
-
                 var request = new RestRequest(Method.POST)
-                    .AddHeader("Content-Type", "application/json")
-                    .AddParameter("application/json; charset=utf-8", jsonRequest, ParameterType.RequestBody);
+                    .AddQueryParameter("code", Environment.GetEnvironmentVariable("ITEM_MICROSERVICES_KEY"));
 
-                var jsonResponse = client.Execute(request).Content;
+                mpns.ForEach(mpn => request.AddQueryParameter("mpn", mpn.ToString()));
 
-                var itemDataResponse = JsonConvert.DeserializeObject<Dictionary<string, ItemData>>(jsonResponse);
+                var response = client.Execute(request);
+                var jsonResponse = response.Content;
 
-                if(itemDataResponse == null)
+                if (response.StatusCode.Equals(500) || string.IsNullOrEmpty(jsonResponse))
                 {
                     throw new Exception("Item Data returned null.");
                 }
 
-                // Send Teams message if any of the items are missing data
-                foreach(var item in itemDataResponse)
-                {
-                    if(item.Value == null)
-                    {
-                        var title = "Item is missing data.";
-                        var teamsMessage = new TeamsMessage(title, $"Item {item.Key} is missing data.", "red", SourcingEngineFunctions.errorLogsUrl);
-                        teamsMessage.LogToTeams(teamsMessage);
-                    }
-                }
+                var itemAndStockingData = JsonConvert.DeserializeObject<ItemResponse>(jsonResponse);
 
-                return itemDataResponse;
+                return itemAndStockingData;
             });
-        }
-
-
-        public void AddItemDataToDict(Dictionary<string, ItemData> itemDataResponse, AtgOrderRes atgOrderRes)
-        {
-            try
-            {
-                foreach(var item in itemDataResponse)
-                {
-                    var mpn = int.Parse(item.Key);
-                    var itemData = item.Value;
-
-                    if (itemData == null) FlagInvalidMPN(mpn, atgOrderRes);
-
-                    items.ItemDict.TryAdd(mpn, itemData);
-                }
-            }
-            catch (Exception ex)
-            {
-                var title = "Error in AddItemDataToDict";
-                var teamsMessage = new TeamsMessage(title, $"Order Id: {atgOrderRes.atgOrderId}. Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
-                teamsMessage.LogToTeams(teamsMessage);
-            }
         }
 
 
@@ -166,7 +138,7 @@ namespace FergusonSourcingEngine.Controllers
             {
                 atgOrderRes.items.ForEach(item =>
                 {
-                    var mpn = int.Parse(item.masterProdId);
+                    var mpn = item.masterProdId;
 
                     item.itemDescription = items.ItemDict[mpn].ItemDescription;
                     item.alt1Code = items.ItemDict[mpn].ALT1Code;
@@ -183,7 +155,7 @@ namespace FergusonSourcingEngine.Controllers
         }
 
 
-        public void SetItemShippingValues(ItemRes item, int mpn)
+        public void SetItemShippingValues(ItemRes item, string mpn)
         {
             try
             {
@@ -191,7 +163,7 @@ namespace FergusonSourcingEngine.Controllers
 
                 var shippingController = new ShippingController(_logger, this);
                 
-                item.preferredShipVia = shippingController.GetItemPreferredShipVia(item.preferredShippingMethod, int.Parse(item.masterProdId), int.Parse(item.quantity));
+                item.preferredShipVia = shippingController.GetItemPreferredShipVia(item.preferredShippingMethod, item.masterProdId, int.Parse(item.quantity));
             }
             catch (Exception ex)
             {
@@ -204,13 +176,22 @@ namespace FergusonSourcingEngine.Controllers
         }
 
 
-        public void FlagInvalidMPN(int mpn, AtgOrderRes atgOrderRes)
+        /// <summary>
+        ///     Sets the invalidMPN flag to true on the ATG order line for the provided MPN.
+        /// </summary>
+        /// <param name="mpn">Master Product Number that was deemed invalid.</param>
+        /// <param name="atgOrderRes">The ATG Order response object.</param>
+        public void FlagInvalidMPN(string mpn, AtgOrderRes atgOrderRes)
         {
             try
             {
                 var orderItems = SourcingController.GetOrderItemsByMPN(mpn, atgOrderRes);
 
                 orderItems.ForEach(item => item.invalidMPN = true);
+
+                var title = "Item is missing data.";
+                var teamsMessage = new TeamsMessage(title, $"Item {mpn} is missing data.", "red", SourcingEngineFunctions.errorLogsUrl);
+                teamsMessage.LogToTeams(teamsMessage);
             }
             catch(Exception ex)
             {
@@ -339,7 +320,7 @@ namespace FergusonSourcingEngine.Controllers
             {
                 inventoryList.ForEach(locationDict =>
                 {
-                    var mpn = int.Parse(locationDict.FirstOrDefault(x => x.Key == "MPID").Value);
+                    var mpn = locationDict.FirstOrDefault(x => x.Key == "MPID").Value;
 
                     foreach (var line in locationDict)
                     {
@@ -370,27 +351,20 @@ namespace FergusonSourcingEngine.Controllers
         }
 
 
-        public void AddStockingStatusesToInventoryDict()
+        /// <summary>
+        ///     Initilizes the stocking status dictionary in the inventory variable.
+        /// </summary>
+        /// <param name="stockingStatusDict">Dictionary of branch numbers and its stocking status of each item.</param>
+        public void AddStockingStatusesToInventoryDict(Dictionary<string, Dictionary<string, bool>> stockingStatusDict)
         {
             try
             {
-                foreach(var itemLine in items.ItemDict)
+                foreach (var stockingStatus in stockingStatusDict)
                 {
-                    var mpn = itemLine.Key;
-                    var itemData = itemLine.Value;
+                    var mpn = stockingStatus.Key;
 
-                    // Create entries in InventoryDict of stocking statuses
-                    inventory.InventoryDict[mpn].StockStatus.TryAdd("533", itemData?.StockingStatus533);
-                    inventory.InventoryDict[mpn].StockStatus.TryAdd("423", itemData?.StockingStatus423);
-                    inventory.InventoryDict[mpn].StockStatus.TryAdd("761", itemData?.StockingStatus761);
-                    inventory.InventoryDict[mpn].StockStatus.TryAdd("2911", itemData?.StockingStatus2911);
-                    inventory.InventoryDict[mpn].StockStatus.TryAdd("2920", itemData?.StockingStatus2920);
-                    inventory.InventoryDict[mpn].StockStatus.TryAdd("474", itemData?.StockingStatus474);
-                    inventory.InventoryDict[mpn].StockStatus.TryAdd("986", itemData?.StockingStatus986);
-                    inventory.InventoryDict[mpn].StockStatus.TryAdd("321", itemData?.StockingStatus321);
-                    inventory.InventoryDict[mpn].StockStatus.TryAdd("625", itemData?.StockingStatus625);
-                    inventory.InventoryDict[mpn].StockStatus.TryAdd("688", itemData?.StockingStatus688);
-                    inventory.InventoryDict[mpn].StockStatus.TryAdd("796", itemData?.StockingStatus796);
+                    inventory.InventoryDict.TryAdd(mpn, new ItemInventory());
+                    inventory.InventoryDict[mpn].StockStatus = stockingStatus.Value;
                 }
             }
             catch (Exception ex)
@@ -406,7 +380,7 @@ namespace FergusonSourcingEngine.Controllers
         ///     Determines if the given item and quantity is in stock at any location in the locations dictionary.
         /// </summary>
         /// <returns>Returns true if given item is in stock at any valid location.</returns>
-        public bool IsItemInStockAtAnyLocation(int mpn, int quantity)
+        public bool IsItemInStockAtAnyLocation(string mpn, int quantity)
         {
             try
             {

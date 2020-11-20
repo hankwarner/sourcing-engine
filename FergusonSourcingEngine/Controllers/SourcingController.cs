@@ -77,7 +77,7 @@ namespace FergusonSourcingEngine.Controllers
         ///     Accepts an order from ATG and populates the location where each item should ship from based on item requirments,
         ///     current inventory, and customer location.
         /// </summary>
-        /// <param name="atgOrder">The original order from ATG, stored in the atg-orders container.</param>
+        /// <param name="atgOrderRes">The original order from ATG, stored in the atg-orders container.</param>
         public void SourceOrder(AtgOrderRes atgOrderRes)
         {
             try
@@ -314,7 +314,7 @@ namespace FergusonSourcingEngine.Controllers
                     }
                     else if (item.backordered)
                     {
-                        var mpn = int.Parse(item.masterProdId);
+                        var mpn = item.masterProdId;
                         var qty = int.Parse(item.quantity);
 
                         var hasStockAtAnyLocation = itemController.IsItemInStockAtAnyLocation(mpn, qty);
@@ -390,10 +390,10 @@ namespace FergusonSourcingEngine.Controllers
 
                 for (var i = 0; i < items.Count(); i++)
                 {
-                    int.TryParse(items[i].masterProdId, out int mpn);
+                    var mpn = items[i].masterProdId;
                     int.TryParse(items[i].quantity, out int quantity);
 
-                    if (mpn == 0 || quantity == 0 || items[i].invalidMPN) continue;
+                    if (string.IsNullOrEmpty(mpn) || quantity == 0 || items[i].invalidMPN) continue;
 
                     var lineId = items[i].lineId;
 
@@ -414,9 +414,10 @@ namespace FergusonSourcingEngine.Controllers
                     }
 
                     var currLine = new SingleLine(mpn, quantity, lineId, sourcingGuide);
+
                     currLine.isMultiLineItem = items
                         .Where(item => !string.IsNullOrEmpty(item.masterProdId) && !string.IsNullOrEmpty(items[i].quantity))
-                        .Count(item => int.Parse(item.masterProdId) == mpn) > 1;
+                        .Count(item => item.masterProdId == mpn) > 1;
 
                     // Using TryAdd here because there will be duplicate sourcingGuides
                     allLines.lineDict.TryAdd(sourcingGuide, new List<SingleLine>());
@@ -735,7 +736,7 @@ namespace FergusonSourcingEngine.Controllers
                 // Write 'Ship From' and 'Vendor' to order line
                 atgOrderRes.items.ForEach(item => 
                 {
-                    var mpn = int.Parse(item.masterProdId);
+                    var mpn = item.masterProdId;
                     var itemDataExists = itemController.items.ItemDict.TryGetValue(mpn, out ItemData itemData);
 
                     if (itemDataExists)
@@ -956,7 +957,7 @@ namespace FergusonSourcingEngine.Controllers
         /// <param name="isMultiLineItem">Does the order contain the same item on different lines.</param>
         /// <param name="mpn">Master Product Number of the item.</param>
         /// <returns></returns>
-        public Dictionary<string, int> GetInventoryDictionaryByItem(bool isMultiLineItem, int mpn)
+        public Dictionary<string, int> GetInventoryDictionaryByItem(bool isMultiLineItem, string mpn)
         {
             var inventoryDict = new Dictionary<string, int>();
 
@@ -1012,7 +1013,7 @@ namespace FergusonSourcingEngine.Controllers
         /// <param name="branchNumbers">Location ID's to check the stocking status of.</param>
         /// <param name="mpn">Master Product Number of the item</param>
         /// <returns>Location ID of the closest location to the customer that stocks the item.</returns>
-        public string GetClosestStockingLocation(List<string> branchNumbers, int mpn)
+        public string GetClosestStockingLocation(List<string> branchNumbers, string mpn)
         {
             try
             {
@@ -1020,7 +1021,7 @@ namespace FergusonSourcingEngine.Controllers
 
                 foreach (var branchNum in branchNumbers)
                 {
-                    itemController.inventory.InventoryDict[mpn].StockStatus.TryGetValue(branchNum, out bool? stockingStatus);
+                    itemController.inventory.InventoryDict[mpn].StockStatus.TryGetValue(branchNum, out bool stockingStatus);
 
                     if (stockingStatus == true)
                     {
@@ -1173,7 +1174,7 @@ namespace FergusonSourcingEngine.Controllers
         /// </summary>
         /// <param name="mpn">Master Product Number of the item.</param>
         /// <returns>ATG order lines that contain the MPN.</returns>
-        public static List<ItemRes> GetOrderItemsByMPN(int mpn, AtgOrderRes atgOrderRes)
+        public static List<ItemRes> GetOrderItemsByMPN(string mpn, AtgOrderRes atgOrderRes)
         {
             return atgOrderRes.items
                 .Where(item => item.masterProdId == mpn.ToString())
@@ -1228,10 +1229,9 @@ namespace FergusonSourcingEngine.Controllers
 
                 foreach (var item in validItems)
                 {
-                    var mpn = int.Parse(item.masterProdId);
+                    var mpn = item.masterProdId;
 
-                    ItemData itemData;
-                    var itemDataExists = itemController.items.ItemDict.TryGetValue(mpn, out itemData);
+                    var itemDataExists = itemController.items.ItemDict.TryGetValue(mpn, out ItemData itemData);
 
                     if (itemDataExists)
                     {

@@ -8,7 +8,7 @@ namespace FergusonSourcingCore.Models
     public class Inventory
     {
         // Key = mpn
-        public Dictionary<int, ItemInventory> InventoryDict = new Dictionary<int, ItemInventory>();
+        public Dictionary<string, ItemInventory> InventoryDict = new Dictionary<string, ItemInventory>();
     }
 
 
@@ -18,15 +18,15 @@ namespace FergusonSourcingCore.Models
 
         public Dictionary<string, int> MultiLineAvailable = new Dictionary<string, int>();
 
-        public Dictionary<string, bool?> StockStatus = new Dictionary<string, bool?>();
+        public Dictionary<string, bool> StockStatus = new Dictionary<string, bool>();
     }
 
 
     public class DOMInventoryRequest
     {
-        public DOMInventoryRequest(List<int> masterProductNumbers)
+        public DOMInventoryRequest(List<string> masterProductNumbers)
         {
-            MasterProductNumbers = masterProductNumbers.ConvertAll(mpn => mpn.ToString());
+            MasterProductNumbers = masterProductNumbers;
         }
 
         [JsonProperty("masterProductNumbers")]
