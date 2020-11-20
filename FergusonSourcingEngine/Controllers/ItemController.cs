@@ -108,7 +108,7 @@ namespace FergusonSourcingEngine.Controllers
             {
                 var url = @"https://item-microservices.azurewebsites.net/api/item";
                 var client = new RestClient(url);
-                var request = new RestRequest(Method.POST)
+                var request = new RestRequest(Method.GET)
                     .AddQueryParameter("code", Environment.GetEnvironmentVariable("ITEM_MICROSERVICES_KEY"));
 
                 mpns.ForEach(mpn => request.AddQueryParameter("mpn", mpn.ToString()));
@@ -141,7 +141,7 @@ namespace FergusonSourcingEngine.Controllers
                     var mpn = item.masterProdId;
 
                     item.itemDescription = items.ItemDict[mpn].ItemDescription;
-                    item.alt1Code = items.ItemDict[mpn].ALT1Code;
+                    item.alt1Code = items.ItemDict[mpn].AltCode;
 
                     SetItemShippingValues(item, mpn);
                 });

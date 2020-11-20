@@ -14,7 +14,7 @@ namespace FergusonSourcingCore.Models
     {
         public string MPN { get; set; }
 
-        public string ALT1Code { get; set; }
+        public string AltCode { get; set; }
 
         public string ItemCategory { get; set; }
 
