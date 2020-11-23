@@ -298,6 +298,12 @@ namespace FergusonSourcingEngine.Controllers
                 
                 if (distanceData.Any(d => d.Value.BusinessTransitDays == 0))
                     throw new ArgumentNullException("BusinessTransitDays");
+
+                // If any branch is missing distanceFromZip, zero them all out so it will not affect sorting and it will go by business transit days instead
+                if (distanceData.Any(d => d.Value.DistanceFromZip == null || d.Value.DistanceFromZip == 0))
+                {
+                    foreach (var dist in distanceData) { dist.Value.DistanceFromZip = 0; }
+                }
 #endif
                 if (distanceData == null)
                     throw new Exception("Distance data returned null.");
