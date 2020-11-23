@@ -8,7 +8,7 @@ namespace FergusonSourcingCore.Models
     {
         public string BranchNumber { get; set; }
 
-        public double DistanceFromZip { get; set; }
+        public double? DistanceFromZip { get; set; }
 
         public int BusinessTransitDays { get; set; }
 
