@@ -71,6 +71,7 @@ namespace FergusonSourcingEngine.Controllers
                     
 
                 var client = new RestClient(url);
+                client.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
 
                 var request = new RestRequest(Method.POST)
                     .AddHeader("Content-Type", "application/json")

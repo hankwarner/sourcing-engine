@@ -267,8 +267,8 @@ namespace FergusonSourcingEngine.Controllers
 #if DEBUG
                 var baseUrl = @"https://service-sourcing.supply.com/api/v2/DistanceData/GetBranchDistancesByZipCodeNew/";
 #endif
-
-                var client = new RestClient(baseUrl + shippingZip);
+                shippingZip = shippingZip.Substring(0, 5);
+                var client = new RestClient(baseUrl + shippingZip.Substring(0, 5));
 
                 var request = new RestRequest(Method.POST)
                     .AddHeader("Accept", "application/json")
@@ -298,6 +298,12 @@ namespace FergusonSourcingEngine.Controllers
                 
                 if (distanceData.Any(d => d.Value.BusinessTransitDays == 0))
                     throw new ArgumentNullException("BusinessTransitDays");
+
+                // If any branch is missing distanceFromZip, zero them all out so it will not affect sorting and it will go by business transit days instead
+                if (distanceData.Any(d => d.Value.DistanceFromZip == null || d.Value.DistanceFromZip == 0))
+                {
+                    foreach (var dist in distanceData) { dist.Value.DistanceFromZip = 0; }
+                }
 #endif
                 if (distanceData == null)
                     throw new Exception("Distance data returned null.");

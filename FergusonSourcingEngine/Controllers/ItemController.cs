@@ -255,6 +255,7 @@ namespace FergusonSourcingEngine.Controllers
                 var url = @"https://erebus.nbsupply.com:443/WebServices/Inventory/RequestInventoryFromDomB2CStorefront";
 
                 var client = new RestClient(url);
+                client.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
 
                 var request = new RestRequest(Method.POST)
                     .AddHeader("Content-Type", "text/plain")
