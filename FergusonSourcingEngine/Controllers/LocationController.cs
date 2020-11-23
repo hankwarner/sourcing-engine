@@ -268,7 +268,7 @@ namespace FergusonSourcingEngine.Controllers
                 var baseUrl = @"https://service-sourcing.supply.com/api/v2/DistanceData/GetBranchDistancesByZipCodeNew/";
 #endif
 
-                var client = new RestClient(baseUrl + shippingZip);
+                var client = new RestClient(baseUrl + shippingZip.Substring(0, 5));
 
                 var request = new RestRequest(Method.POST)
                     .AddHeader("Accept", "application/json")
