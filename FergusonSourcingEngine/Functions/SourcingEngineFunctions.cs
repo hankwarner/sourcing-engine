@@ -16,6 +16,7 @@ using Microsoft.Extensions.Configuration;
 using System.Net;
 using AzureFunctions.Extensions.Swashbuckle.Attribute;
 using FergusonSourcingCore.Models;
+using RestSharp;
 
 namespace FergusonSourcingEngine
 {
@@ -380,14 +381,22 @@ namespace FergusonSourcingEngine
         /// </summary>
         [FunctionName("RunSourcingOnStaleOrders")]
         public static async Task RunSourcingOnStaleOrders(
-            [TimerTrigger("0 30 10 * * *")] TimerInfo timer, // everyday at 6:30am EST
+            [HttpTrigger(AuthorizationLevel.Function, "get")] HttpRequest req,
             [CosmosDB(ConnectionStringSetting = "AzureCosmosDBConnectionString"), SwaggerIgnore] DocumentClient documentClient,
             ILogger log)
         {
             try
             {
-                var manualOrderscontainerName = Environment.GetEnvironmentVariable("MANUAL_ORDERS_CONTAINER_NAME");
-                var manualOrdersCollectionUri = UriFactory.CreateDocumentCollectionUri("sourcing-engine", manualOrderscontainerName);
+                var easternStandardTime = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+                var currentEasternTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, easternStandardTime);
+
+                var currentHour = currentEasternTime.Hour;
+                log.LogInformation($"Current Hour: {currentHour}");
+
+                // Only run within 6am - 10pm EST
+                if (currentHour < 6 || currentHour >= 22) return;
+
+                var manualOrdersCollectionUri = UriFactory.CreateDocumentCollectionUri("sourcing-engine", "manual-orders");
 
                 var query = new SqlQuerySpec
                 {
@@ -395,7 +404,6 @@ namespace FergusonSourcingEngine
                 };
 
                 var incompleteOrders = documentClient.CreateDocumentQuery<Document>(manualOrdersCollectionUri, query, option).AsEnumerable();
-
                 log.LogInformation($"Incomplete Order Count: {incompleteOrders.Count()}");
 
                 if (incompleteOrders.Count() == 0) return;
@@ -405,11 +413,10 @@ namespace FergusonSourcingEngine
                     try
                     {
                         ManualOrder manualOrder = (dynamic)order;
-
                         log.LogInformation($"Order ID: {manualOrder.atgOrderId}");
                         log.LogInformation(@"Manual Order: {Order}", manualOrder);
 
-                        var ordersCollectionUri = UriFactory.CreateDocumentCollectionUri("sourcing-engine", ordersContainerName);
+                        var ordersCollectionUri = UriFactory.CreateDocumentCollectionUri("sourcing-engine", "orders");
 
                         // Get the matching order from the orders container and run sourcing
                         query = new SqlQuerySpec
@@ -418,16 +425,25 @@ namespace FergusonSourcingEngine
                             Parameters = new SqlParameterCollection() { new SqlParameter("@id", manualOrder.atgOrderId) }
                         };
 
-                        var atgOrderRes = documentClient.CreateDocumentQuery<AtgOrderRes>(ordersCollectionUri, query, option)
+                        var atgOrderReq = documentClient.CreateDocumentQuery<AtgOrderReq>(ordersCollectionUri, query, option)
                             .AsEnumerable().FirstOrDefault();
 
-                        var sourcingController = InitializeSourcingController(log);
+                        var jsonRequest = JsonConvert.SerializeObject(atgOrderReq);
 
-                        await sourcingController.StartSourcing(documentClient, atgOrderRes);
+                        var url = @"https://sourcing-engine.azurewebsites.net/api/order/source";
+
+                        var client = new RestClient(url);
+
+                        var request = new RestRequest(Method.POST)
+                            .AddHeader("Content-Type", "text/plain")
+                            .AddParameter("code", "SOURCING_ENGINE_HOST_KEY")
+                            .AddParameter("application/json; charset=utf-8", jsonRequest, ParameterType.RequestBody);
+
+                        _ = client.ExecuteAsync(request);
                     }
                     catch (Exception ex)
                     {
-                        var title = "Error in SourceStaleOrders loop";
+                        var title = "Error in RunSourcingOnStaleOrders loop";
                         var text = $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                         var teamsMessage = new TeamsMessage(title, text, "yellow", errorLogsUrl);
                         teamsMessage.LogToTeams(teamsMessage);
@@ -438,7 +454,7 @@ namespace FergusonSourcingEngine
             }
             catch (Exception ex)
             {
-                var title = "Error in SourceStaleOrders";
+                var title = "Error in RunSourcingOnStaleOrders";
                 var text = $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var teamsMessage = new TeamsMessage(title, text, "red", errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
