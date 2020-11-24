@@ -3,13 +3,6 @@ using System.Collections.Generic;
 
 namespace FergusonSourcingCore.Models
 {
-    public class AllItems
-    {
-        // Key will be Master Product Number
-        public Dictionary<string, ItemData> ItemDict = new Dictionary<string, ItemData>();
-    }
-
-
     public class ItemData
     {
         public string MPN { get; set; }

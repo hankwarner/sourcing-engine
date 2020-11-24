@@ -7,14 +7,13 @@ using Newtonsoft.Json.Linq;
 using RestSharp;
 using Polly;
 using Microsoft.Extensions.Logging;
-using System.Net;
+using System.Threading.Tasks;
 
 namespace FergusonSourcingEngine.Controllers
 {
     public class ItemController
     {
         public Inventory inventory = new Inventory();
-        public AllItems items = new AllItems();
         public List<string> mpns = new List<string>();
         public double cumulativeItemWeight { get; set; }
         private ILogger _logger;
@@ -29,7 +28,7 @@ namespace FergusonSourcingEngine.Controllers
         ///     Calls the ItemMicroservice to build the item dictionary and stocking status dictionary.
         /// </summary>
         /// <param name="atgOrderRes">The ATG Order response that will be written to CosmosDB.</param>
-        public void InitializeItems(AtgOrderRes atgOrderRes)
+        public async Task<ItemResponse> InitializeItems(AtgOrderRes atgOrderRes)
         {
             try
             {
@@ -46,13 +45,13 @@ namespace FergusonSourcingEngine.Controllers
                         FlagInvalidMPN(item.Key, atgOrderRes);
                 }
 
-                items.ItemDict = itemAndStockingData.ItemDataDict;
-
-                SetItemDetailsOnOrder(atgOrderRes);
+                SetItemDetailsOnOrder(atgOrderRes, itemAndStockingData.ItemDataDict);
 
                 AddStockingStatusesToInventoryDict(itemAndStockingData.StockingStatusDict);
 
                 _logger.LogInformation("InitializeItems finish");
+
+                return itemAndStockingData;
             }
             catch(Exception ex)
             {
@@ -132,7 +131,7 @@ namespace FergusonSourcingEngine.Controllers
         ///     Sets any relevant item details, such as description and ship method, for each line item on the order.
         /// </summary>
         /// <param name="atgOrderRes">The ATG Order response object that will be written to Cosmos DB.</param>
-        public void SetItemDetailsOnOrder(AtgOrderRes atgOrderRes)
+        public void SetItemDetailsOnOrder(AtgOrderRes atgOrderRes, Dictionary<string, ItemData> itemDict)
         {
             try
             {
@@ -140,10 +139,10 @@ namespace FergusonSourcingEngine.Controllers
                 {
                     var mpn = item.masterProdId;
 
-                    item.itemDescription = items.ItemDict[mpn].ItemDescription;
-                    item.alt1Code = items.ItemDict[mpn].AltCode;
+                    item.itemDescription = itemDict[mpn].ItemDescription;
+                    item.alt1Code = itemDict[mpn].AltCode;
 
-                    SetItemShippingValues(item, mpn);
+                    SetItemShippingValues(item, mpn, itemDict);
                 });
             }
             catch (Exception ex)
@@ -155,11 +154,11 @@ namespace FergusonSourcingEngine.Controllers
         }
 
 
-        public void SetItemShippingValues(ItemRes item, string mpn)
+        public void SetItemShippingValues(ItemRes item, string mpn, Dictionary<string, ItemData> itemDict)
         {
             try
             {
-                item.preferredShippingMethod = items.ItemDict[mpn].PreferredShippingMethod;
+                item.preferredShippingMethod = itemDict[mpn].PreferredShippingMethod;
 
                 var shippingController = new ShippingController(_logger, this);
                 
