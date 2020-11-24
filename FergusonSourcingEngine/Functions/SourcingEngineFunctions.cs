@@ -483,7 +483,7 @@ namespace FergusonSourcingEngine
                 log.LogInformation($"Current Hour: {currentHour}");
 
                 // Only run within 8am - 10pm EST
-                if (currentHour < 8 && currentHour >= 22) return;
+                if (currentHour < 8 || currentHour >= 22) return;
 
                 // Get the most recent order
                 var ordersCollectionUri = UriFactory.CreateDocumentCollectionUri("sourcing-engine", "orders");
