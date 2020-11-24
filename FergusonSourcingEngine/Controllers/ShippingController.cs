@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System.Linq;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace FergusonSourcingEngine.Controllers
 {
@@ -202,7 +203,7 @@ namespace FergusonSourcingEngine.Controllers
         /// <param name="lineQty">Item quantity on the line.</param>
         /// <param name="mpn">Master Product Number of the item.</param>
         /// <returns>The method that the order will be shipped.</returns>
-        public string GetItemPreferredShipVia(string prefShipMethod, string mpn, int lineQty, Dictionary<string, ItemData> itemDict)
+        public async Task<string> GetItemPreferredShipVia(string prefShipMethod, string mpn, int lineQty, Dictionary<string, ItemData> itemDict)
         {
             prefShipMethod = prefShipMethod.ToUpper();
 
