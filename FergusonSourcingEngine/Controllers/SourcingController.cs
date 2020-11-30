@@ -15,14 +15,16 @@ namespace FergusonSourcingEngine.Controllers
         private LocationController locationController { get; set; }
         private ShippingController shippingController { get; set; }
         private OrderController orderController { get; set; }
+        private RequirementController requirementController { get; set; }
 
-        public SourcingController(ILogger logger, ItemController itemController, LocationController locationController, ShippingController shippingController, OrderController orderController)
+        public SourcingController(ILogger logger, ItemController itemController, LocationController locationController, ShippingController shippingController, OrderController orderController, RequirementController requirementController)
         {
             _logger = logger;
             this.itemController = itemController;
             this.locationController = locationController;
             this.shippingController = shippingController;
             this.orderController = orderController;
+            this.requirementController = requirementController;
         }
 
 
@@ -33,7 +35,7 @@ namespace FergusonSourcingEngine.Controllers
         {
             try
             {
-                SourceOrder(atgOrderRes);
+                await SourceOrder(atgOrderRes);
 
                 if (!atgOrderRes.processSourcing)
                 {
@@ -47,6 +49,7 @@ namespace FergusonSourcingEngine.Controllers
                     await documentClient.UpsertDocumentAsync(uri, manualOrder);
                 }
 
+                atgOrderRes.SetTotalRuntime();
                 _logger.LogInformation(@"Order at end: {Order}", atgOrderRes);
 
                 // Write order to Cosmos DB
@@ -77,8 +80,8 @@ namespace FergusonSourcingEngine.Controllers
         ///     Accepts an order from ATG and populates the location where each item should ship from based on item requirments,
         ///     current inventory, and customer location.
         /// </summary>
-        /// <param name="atgOrder">The original order from ATG, stored in the atg-orders container.</param>
-        public void SourceOrder(AtgOrderRes atgOrderRes)
+        /// <param name="atgOrderRes">The original order from ATG, stored in the atg-orders container.</param>
+        public async Task SourceOrder(AtgOrderRes atgOrderRes)
         {
             try
             {
@@ -86,7 +89,11 @@ namespace FergusonSourcingEngine.Controllers
                 atgOrderRes.shipping.shipVia = shippingController.GetOrderShipVia(atgOrderRes.shipping.shipViaCode);
 
                 // Get the product data, sourcing guide, stocking statuses for each item
-                itemController.InitializeItems(atgOrderRes);
+                var itemTask = itemController.InitializeItems(atgOrderRes);
+                var initLocationsTask = locationController.InitializeLocations(atgOrderRes);
+                var initInventoryTask = itemController.InitializeInventory();
+
+                await itemTask;
 
                 // Build All Lines and separate by Sourcing Guide
                 var allLines = GroupBySourcingGuide(atgOrderRes.items);
@@ -96,12 +103,14 @@ namespace FergusonSourcingEngine.Controllers
 
                 if (hasFEILines && !isPickupOrder)
                 {
-                    locationController.InitializeLocations(allLines, atgOrderRes);
+                    await initLocationsTask;
+
+                    SetLineLocationsAndRequirements(allLines, atgOrderRes);
                 }
 
                 if (hasFEILines || isPickupOrder)
                 {
-                    itemController.InitializeInventory();
+                    await initInventoryTask;
 
                     LogLocationAndItemInventory();
                 }
@@ -142,8 +151,7 @@ namespace FergusonSourcingEngine.Controllers
             {
                 var title = "KeyNotFoundException in SourceOrder";
                 var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
-                var color = "red";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
                 _logger.LogError(title);
             }
@@ -151,8 +159,7 @@ namespace FergusonSourcingEngine.Controllers
             {
                 var title = "Exception in SourceOrder";
                 var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
-                var color = "red";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, text, "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
                 _logger.LogError(title);
                 throw;
@@ -314,7 +321,7 @@ namespace FergusonSourcingEngine.Controllers
                     }
                     else if (item.backordered)
                     {
-                        var mpn = int.Parse(item.masterProdId);
+                        var mpn = item.masterProdId;
                         var qty = int.Parse(item.quantity);
 
                         var hasStockAtAnyLocation = itemController.IsItemInStockAtAnyLocation(mpn, qty);
@@ -380,26 +387,26 @@ namespace FergusonSourcingEngine.Controllers
         ///     a dictionary entry where key is Sourcing Guide, and the value is a list of all order lines 
         ///     with items for that sourcing guide.
         /// </summary>
-        /// <param name="items">All items from the initial ATG order.</param>
+        /// <param name="orderItems">All items from the initial ATG order.</param>
         /// <returns>New list of items grouped by their sourcing guideline.</returns>
-        public AllLines GroupBySourcingGuide(List<ItemRes> items)
+        public AllLines GroupBySourcingGuide(List<ItemRes> orderItems)
         {
             try
             {
                 var allLines = new AllLines();
 
-                for (var i = 0; i < items.Count(); i++)
+                for (var i = 0; i < orderItems.Count(); i++)
                 {
-                    int.TryParse(items[i].masterProdId, out int mpn);
-                    int.TryParse(items[i].quantity, out int quantity);
+                    var mpn = orderItems[i].masterProdId;
+                    int.TryParse(orderItems[i].quantity, out int quantity);
 
-                    if (mpn == 0 || quantity == 0 || items[i].invalidMPN) continue;
+                    if (string.IsNullOrEmpty(mpn) || quantity == 0 || orderItems[i].invalidMPN) continue;
 
-                    var lineId = items[i].lineId;
+                    var lineId = orderItems[i].lineId;
 
                     var sourcingGuide = itemController.items.ItemDict[mpn].SourcingGuideline;
                     // Set sourcing guide on the line
-                    items[i].sourcingGuide = sourcingGuide;
+                    orderItems[i].sourcingGuide = sourcingGuide;
 
                     // Rounded items- if it's a broken bulk pack, need to ship from Branch instead of a DC
                     if (sourcingGuide == "Branch" || sourcingGuide == "FEI")
@@ -414,9 +421,10 @@ namespace FergusonSourcingEngine.Controllers
                     }
 
                     var currLine = new SingleLine(mpn, quantity, lineId, sourcingGuide);
-                    currLine.isMultiLineItem = items
-                        .Where(item => !string.IsNullOrEmpty(item.masterProdId) && !string.IsNullOrEmpty(items[i].quantity))
-                        .Count(item => int.Parse(item.masterProdId) == mpn) > 1;
+
+                    currLine.isMultiLineItem = orderItems
+                        .Where(item => !string.IsNullOrEmpty(item.masterProdId) && !string.IsNullOrEmpty(orderItems[i].quantity))
+                        .Count(item => item.masterProdId == mpn) > 1;
 
                     // Using TryAdd here because there will be duplicate sourcingGuides
                     allLines.lineDict.TryAdd(sourcingGuide, new List<SingleLine>());
@@ -451,6 +459,7 @@ namespace FergusonSourcingEngine.Controllers
                 foreach (var line in lines)
                 {
                     var vendor = itemController.items.ItemDict[line.MasterProductNumber].Vendor;
+
                     var orderItem = orderController.GetOrderItemByLineId(line.LineId, atgOrderRes);
                     // Set Vendor name on the item line
                     orderItem.vendor = vendor;
@@ -735,7 +744,7 @@ namespace FergusonSourcingEngine.Controllers
                 // Write 'Ship From' and 'Vendor' to order line
                 atgOrderRes.items.ForEach(item => 
                 {
-                    var mpn = int.Parse(item.masterProdId);
+                    var mpn = item.masterProdId;
                     var itemDataExists = itemController.items.ItemDict.TryGetValue(mpn, out ItemData itemData);
 
                     if (itemDataExists)
@@ -956,7 +965,7 @@ namespace FergusonSourcingEngine.Controllers
         /// <param name="isMultiLineItem">Does the order contain the same item on different lines.</param>
         /// <param name="mpn">Master Product Number of the item.</param>
         /// <returns></returns>
-        public Dictionary<string, int> GetInventoryDictionaryByItem(bool isMultiLineItem, int mpn)
+        public Dictionary<string, int> GetInventoryDictionaryByItem(bool isMultiLineItem, string mpn)
         {
             var inventoryDict = new Dictionary<string, int>();
 
@@ -1012,7 +1021,7 @@ namespace FergusonSourcingEngine.Controllers
         /// <param name="branchNumbers">Location ID's to check the stocking status of.</param>
         /// <param name="mpn">Master Product Number of the item</param>
         /// <returns>Location ID of the closest location to the customer that stocks the item.</returns>
-        public string GetClosestStockingLocation(List<string> branchNumbers, int mpn)
+        public string GetClosestStockingLocation(List<string> branchNumbers, string mpn)
         {
             try
             {
@@ -1173,7 +1182,7 @@ namespace FergusonSourcingEngine.Controllers
         /// </summary>
         /// <param name="mpn">Master Product Number of the item.</param>
         /// <returns>ATG order lines that contain the MPN.</returns>
-        public static List<ItemRes> GetOrderItemsByMPN(int mpn, AtgOrderRes atgOrderRes)
+        public static List<ItemRes> GetOrderItemsByMPN(string mpn, AtgOrderRes atgOrderRes)
         {
             return atgOrderRes.items
                 .Where(item => item.masterProdId == mpn.ToString())
@@ -1228,10 +1237,9 @@ namespace FergusonSourcingEngine.Controllers
 
                 foreach (var item in validItems)
                 {
-                    var mpn = int.Parse(item.masterProdId);
+                    var mpn = item.masterProdId;
 
-                    ItemData itemData;
-                    var itemDataExists = itemController.items.ItemDict.TryGetValue(mpn, out itemData);
+                    var itemDataExists = itemController.items.ItemDict.TryGetValue(mpn, out ItemData itemData);
 
                     if (itemDataExists)
                     {
@@ -1278,6 +1286,61 @@ namespace FergusonSourcingEngine.Controllers
                     orderRes.processSourcing = false;
                     break;
                 }
+            }
+        }
+
+
+        /// <summary>
+        ///     Sets the potential locations to source from for each line item using the item's sourcing requirements, such as sourcing guide.
+        /// </summary>
+        /// <param name="allLines">Order items grounped by sourcing guide.</param>
+        public void SetLineLocationsAndRequirements(AllLines allLines, AtgOrderRes atgOrderRes)
+        {
+            try
+            {
+                foreach (var linePair in allLines.lineDict)
+                {
+                    var guide = linePair.Key;
+
+                    // Determine which locations are available for each line based on the sourcing guide
+                    linePair.Value.ForEach(line =>
+                    {
+                        requirementController.SetLineRequirements(line, atgOrderRes);
+
+                        // Determine which locations meet item requirements
+                        foreach (var location in locationController.locations.LocationDict.Values)
+                        {
+                            // Skip locations that do not meet the item requirements
+                            if (!requirementController.DoesLocationMeetRequirements(line, guide, location)) continue;
+
+                            // If all requirements are met, add as an available location for the line
+                            line.Locations.Add(location.BranchNumber, location);
+                        }
+
+                        // If line has no locations, flag it and use the locationsDict filtered by guide
+                        if (line.Locations.Count() == 0)
+                        {
+                            _logger.LogInformation($"No locations meet requirements for item {line.MasterProductNumber}.");
+
+                            var orderItem = atgOrderRes.items.FirstOrDefault(i => i.lineId == line.LineId);
+                            orderItem.noLocationsMeetRequirements = true;
+
+                            foreach (var location in locationController.locations.LocationDict)
+                            {
+                                if (requirementController.MeetsSourcingGuidelineRequirement(location.Value, guide))
+                                {
+                                    line.Locations.Add(location.Key, location.Value);
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                var title = "Error in SetLineLocationsAndRequirements";
+                var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
+                teamsMessage.LogToTeams(teamsMessage);
             }
         }
     }

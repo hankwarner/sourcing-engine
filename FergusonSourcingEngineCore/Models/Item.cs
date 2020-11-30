@@ -6,13 +6,13 @@ namespace FergusonSourcingCore.Models
     public class AllItems
     {
         // Key will be Master Product Number
-        public Dictionary<int, ItemData> ItemDict = new Dictionary<int, ItemData>();
+        public Dictionary<string, ItemData> ItemDict = new Dictionary<string, ItemData>();
     }
 
 
     public class ItemData
     {
-        public int MPN { get; set; }
+        public string MPN { get; set; }
 
         public string ALT1Code { get; set; }
 
@@ -80,7 +80,7 @@ namespace FergusonSourcingCore.Models
         // Requirements
         public bool OverpackRequired { get; set; }
     }
-    
+
 
 
     public class ItemResponse

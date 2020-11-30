@@ -5,6 +5,8 @@ using Polly;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System.Linq;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace FergusonSourcingEngine.Controllers
 {
@@ -168,7 +170,7 @@ namespace FergusonSourcingEngine.Controllers
         }
 
 #if DEBUG
-        public double GetCumulativeItemWeight(IGrouping<string, SingleLine> groupedLine)
+        public double GetCumulativeItemWeight(IGrouping<string, SingleLine> groupedLine, Dictionary<string, ItemData> itemDict)
         {
             var totalItemWeight = 0.0;
 
@@ -177,7 +179,7 @@ namespace FergusonSourcingEngine.Controllers
                 foreach (var line in groupedLine)
                 {
                     var mpn = line.MasterProductNumber;
-                    var weight = itemController.items.ItemDict[mpn].Weight;
+                    var weight = itemDict[mpn].Weight;
 
                     totalItemWeight += weight;
                 }
@@ -201,7 +203,7 @@ namespace FergusonSourcingEngine.Controllers
         /// <param name="lineQty">Item quantity on the line.</param>
         /// <param name="mpn">Master Product Number of the item.</param>
         /// <returns>The method that the order will be shipped.</returns>
-        public string GetItemPreferredShipVia(string prefShipMethod, int mpn, int lineQty)
+        public async Task<string> GetItemPreferredShipVia(string prefShipMethod, string mpn, int lineQty)
         {
             prefShipMethod = prefShipMethod.ToUpper();
 

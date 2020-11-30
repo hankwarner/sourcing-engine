@@ -7,17 +7,16 @@ using Polly;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using System.Linq;
-using System.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using System.Threading;
 using Nager.Date;
+using System.Threading.Tasks;
 
 namespace FergusonSourcingEngine.Controllers
 {
     public class LocationController
     {
         private ILogger _logger;
-        private RequirementController requirementController { get; set; }
         public Locations locations = new Locations();
 
         public LocationController(ILogger logger)
@@ -25,18 +24,12 @@ namespace FergusonSourcingEngine.Controllers
             _logger = logger;
         }
 
-        public LocationController(ILogger logger, RequirementController requirementController)
-        {
-            _logger = logger;
-            this.requirementController = requirementController;
-        }
-
 
         /// <summary>
         ///     Gets the available locations (local branch logon + all DC's) and builds the Location Dictionary. 
         ///     Values include distance data, location type (DC, Branch, Vendor, etc.), address, and estimated delivery date.
         /// </summary>
-        public void InitializeLocations(AllLines allLines, AtgOrderRes atgOrderRes)
+        public async Task InitializeLocations(AtgOrderRes atgOrderRes)
         {
             try
             {
@@ -50,22 +43,18 @@ namespace FergusonSourcingEngine.Controllers
 
                 var sellWarehouse = atgOrderRes.sellWhse ?? "D98 DISTRIBUTION CENTERS";
 
-                locations.LocationDict = GetLogonLocationData(sellWarehouse);
+                locations.LocationDict = await GetLogonLocationData(sellWarehouse);
 
-                ValidateSellWarehouse(atgOrderRes);
+                _ = ValidateSellWarehouse(atgOrderRes);
 
-                // Get distance data and add to location dictionary
-                var distanceData = GetDistanceData(shipToZip);
+                var distanceData = await GetDistanceData(shipToZip);
 
-                AddDistanceDataToLocationDict(distanceData);
+                var addToDictTask = AddDistanceDataToLocationDict(distanceData);
+                var prefLocationTask = SetPreferredLocationFlag(shipToState, shipToZip);
 
-                // Sets the preferred DC by state
-                SetPreferredLocationFlag(shipToState, shipToZip);
+                await Task.WhenAll(addToDictTask, prefLocationTask);
 
-                SortLocations();
-
-                // Once the locations dictionary is entirely built out, add locations to each line in All Lines based on sourcing guide and item restrictions
-                SetLineLocationsAndRequirements(allLines, atgOrderRes);
+                await SortLocations();
 
                 _logger.LogInformation("InitializeLocations finish");
             }
@@ -79,7 +68,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Error in InitializeLocations";
                 var teamsMessage = new TeamsMessage(title, $"Order Id: {atgOrderRes.atgOrderId}. Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
-                _logger.LogError(title);
+                _logger.LogError(ex, title);
                 throw;
             }
         }
@@ -89,7 +78,7 @@ namespace FergusonSourcingEngine.Controllers
         ///     Flags the order as invalid if the sell warehouse provided in the original request is not a valid location.
         /// </summary>
         /// <param name="atgOrderRes">The ATG Order response object that will be written to Cosmos DB.</param>
-        public void ValidateSellWarehouse(AtgOrderRes atgOrderRes)
+        public async Task ValidateSellWarehouse(AtgOrderRes atgOrderRes)
         {
             try
             {
@@ -114,7 +103,7 @@ namespace FergusonSourcingEngine.Controllers
         ///         4. Business days in transit
         ///         5. Distance to destination zip
         /// </summary>
-        public void SortLocations()
+        public async Task SortLocations()
         {
 #if RELEASE
             locations.LocationDict = locations.LocationDict.OrderByDescending(l => l.Value.IsPreferred)
@@ -170,16 +159,12 @@ namespace FergusonSourcingEngine.Controllers
                 var jsonResponse = client.Execute(request).Content;
 
                 if (string.IsNullOrEmpty(jsonResponse))
-                {
                     throw new ArgumentNullException("jsonResponse", "GetBranchLogonID returned an empty string");
-                }
 
                 var token = JToken.Parse(jsonResponse);
 
                 if (token is JObject)
-                {
                     throw new Exception("GetBranchLogonID returned an error response.");
-                }
 
                 var branchLogonID = jsonResponse.Replace("\"", "");
 
@@ -193,7 +178,7 @@ namespace FergusonSourcingEngine.Controllers
         ///     WMS, and Ship Hub status.
         /// </summary>
         /// <param name="sellingWarehouse">Branch number of the selling warehouse on the order.</param>
-        public Dictionary<string, Location> GetLogonLocationData(string sellingWarehouse)
+        public async Task<Dictionary<string, Location>> GetLogonLocationData(string sellingWarehouse)
         {
             var retryPolicy = Policy.Handle<Exception>().Retry(5, onRetry: (ex, count) => 
             {
@@ -210,7 +195,7 @@ namespace FergusonSourcingEngine.Controllers
                 }
              });
 
-            return retryPolicy.Execute(() =>
+            return await retryPolicy.Execute(async () =>
             {
                 var baseUrl = @"https://service-sourcing.supply.com/api/v2/Location/GetLogonLocationData/";
 
@@ -220,9 +205,13 @@ namespace FergusonSourcingEngine.Controllers
                     .AddHeader("Accept", "application/json")
                     .AddHeader("Content-Type", "application/json");
 
-                var jsonResponse = client.Execute(request).Content;
+                var locationDataTask = client.ExecuteAsync(request);
 
-                if (string.IsNullOrEmpty(jsonResponse)) throw new Exception("Sell warehouse did not return any logons.");
+                var response = await locationDataTask;
+                var jsonResponse = response.Content;
+
+                if (string.IsNullOrEmpty(jsonResponse)) 
+                    throw new Exception("Sell warehouse did not return any logons.");
 
                 var parsedResponse = JsonConvert.DeserializeObject<Dictionary<string, Location>>(jsonResponse);
 
@@ -237,10 +226,10 @@ namespace FergusonSourcingEngine.Controllers
         /// <param name="shippingZip">Customer's shipping zip code.</param>
         /// <returns>Dictionary where key is branch number and value is location data.</returns>
 #if RELEASE
-        public Dictionary<string, double> GetDistanceData(string shippingZip)
+        public async Task<Dictionary<string, double>> GetDistanceData(string shippingZip)
 #endif
 #if DEBUG
-        public Dictionary<string, DistanceData> GetDistanceData(string shippingZip)
+        public async Task<Dictionary<string, DistanceData>> GetDistanceData(string shippingZip)
 #endif
         {
             var retryPolicy = Policy.Handle<Exception>().Retry(10, (ex, count) =>
@@ -256,7 +245,7 @@ namespace FergusonSourcingEngine.Controllers
                 }
             });
 
-            return retryPolicy.Execute(() =>
+            return await retryPolicy.Execute(async () =>
             {
                 var allBranchNumbers = locations.LocationDict.Keys;
                 var requestBody = new List<string>(allBranchNumbers);
@@ -275,8 +264,10 @@ namespace FergusonSourcingEngine.Controllers
                     .AddHeader("Content-Type", "application/json")
                     .AddParameter("application/json; charset=utf-8", jsonRequest, ParameterType.RequestBody);
 
-                var jsonResponse = client.Execute(request).Content;
+                var distanceDataTask = client.ExecuteAsync(request);
 
+                var response = await distanceDataTask;
+                var jsonResponse = response.Content;
 #if RELEASE
                 var distanceData = JsonConvert.DeserializeObject<Dictionary<string, double>>(jsonResponse);
 #endif
@@ -319,10 +310,10 @@ namespace FergusonSourcingEngine.Controllers
         /// </summary>
         /// <param name="distanceDataDict">Dictionary where the key is the branch number and value is distance data, including distance in miles from destination and days in transit.</param>
 #if RELEASE
-        public void AddDistanceDataToLocationDict(Dictionary<string, double> distanceDataDict)
+        public async Task AddDistanceDataToLocationDict(Dictionary<string, double> distanceDataDict)
 #endif
 #if DEBUG
-        public void AddDistanceDataToLocationDict(Dictionary<string, DistanceData> distanceDataDict)
+        public async Task AddDistanceDataToLocationDict(Dictionary<string, DistanceData> distanceDataDict)
 #endif
         {
             try
@@ -342,9 +333,9 @@ namespace FergusonSourcingEngine.Controllers
                         locationData.Distance = distanceData.DistanceFromZip;
                         locationData.BusinessDaysInTransit = distanceData.BusinessTransitDays;
 
-                        locationData.EstShipDate = GetEstShipDate(locationData, DateTime.Now);
+                        locationData.EstShipDate = await GetEstShipDate(locationData, DateTime.Now);
 
-                        locationData.EstDeliveryDate = GetEstDeliveryDate(locationData);
+                        locationData.EstDeliveryDate = await GetEstDeliveryDate(locationData);
 #endif
                     }
                 }
@@ -365,7 +356,7 @@ namespace FergusonSourcingEngine.Controllers
         /// </summary>
         /// <param name="location">The location data object. Must include the cutoff time and processing time.</param>
         /// <returns>Estimated date that the package will be shipped from the location. Time is set to 0:00.</returns>
-        public DateTime GetEstShipDate(Location location, DateTime startDate)
+        public async Task<DateTime> GetEstShipDate(Location location, DateTime startDate)
         {
             // Cutoff times are all in EST
             var locationCutoffTime = location.FedExESTCutoffTimes;
@@ -397,7 +388,7 @@ namespace FergusonSourcingEngine.Controllers
         /// </summary>
         /// <param name="location">The location data object. Must include est ship date, business days in transit, and saturday delivery indictor.</param>
         /// <returns>Estimated date that the package will be delivered. Time is set to 0:00.</returns>
-        public DateTime GetEstDeliveryDate(Location location)
+        public async Task<DateTime> GetEstDeliveryDate(Location location)
         {
             // Ship date does not count as a transit day
             var startDate = location.EstShipDate.AddDays(1);
@@ -451,9 +442,9 @@ namespace FergusonSourcingEngine.Controllers
         /// </summary>
         /// <param name="state">Customer's shipping state.</param>
         /// <param name="zip">Customer's shipping state. Used in California's preferred location logic.</param>
-        public void SetPreferredLocationFlag(string state, string zip)
+        public async Task SetPreferredLocationFlag(string state, string zip)
         {
-            var preferredDC = GetPreferredDCByState(state, zip);
+            var preferredDC = await GetPreferredDCByState(state, zip);
             _logger.LogInformation($"Preferred DC {preferredDC}");
 
             if(!string.IsNullOrEmpty(preferredDC))
@@ -476,7 +467,7 @@ namespace FergusonSourcingEngine.Controllers
         }
 
 
-        public string GetPreferredDCByState(string state, string zip)
+        public async Task<string> GetPreferredDCByState(string state, string zip)
         {
             var preferredBranchNumber = "";
 
@@ -568,54 +559,54 @@ namespace FergusonSourcingEngine.Controllers
         ///     Sets the potential locations to source from for each line item using the item's sourcing requirements, such as sourcing guide.
         /// </summary>
         /// <param name="allLines">Order items grounped by sourcing guide.</param>
-        public void SetLineLocationsAndRequirements(AllLines allLines, AtgOrderRes atgOrderRes)
-        {
-            try
-            {
-                foreach(var linePair in allLines.lineDict)
-                {
-                    var guide = linePair.Key;
+        //public void SetLineLocationsAndRequirements(AllLines allLines, AtgOrderRes atgOrderRes, Dictionary<string, ItemData> itemDict)
+        //{
+        //    try
+        //    {
+        //        foreach(var linePair in allLines.lineDict)
+        //        {
+        //            var guide = linePair.Key;
 
-                    // Determine which locations are available for each line based on the sourcing guide
-                    linePair.Value.ForEach(line =>
-                    {
-                        requirementController.SetLineRequirements(line, atgOrderRes);
+        //            // Determine which locations are available for each line based on the sourcing guide
+        //            linePair.Value.ForEach(line =>
+        //            {
+        //                requirementController.SetLineRequirements(line, atgOrderRes, itemDict);
 
-                        // Determine which locations meet item requirements
-                        foreach(var location in locations.LocationDict.Values)
-                        {
-                            // Skip locations that do not meet the item requirements
-                            if (!requirementController.DoesLocationMeetRequirements(line, guide, location)) continue;
+        //                // Determine which locations meet item requirements
+        //                foreach(var location in locations.LocationDict.Values)
+        //                {
+        //                    // Skip locations that do not meet the item requirements
+        //                    if (!requirementController.DoesLocationMeetRequirements(line, guide, location, itemDict)) continue;
 
-                            // If all requirements are met, add as an available location for the line
-                            line.Locations.Add(location.BranchNumber, location);
-                        }
+        //                    // If all requirements are met, add as an available location for the line
+        //                    line.Locations.Add(location.BranchNumber, location);
+        //                }
 
-                        // If line has no locations, flag it and use the locationsDict filtered by guide
-                        if (line.Locations.Count() == 0)
-                        {
-                            _logger.LogInformation($"No locations meet requirements for item {line.MasterProductNumber}.");
+        //                // If line has no locations, flag it and use the locationsDict filtered by guide
+        //                if (line.Locations.Count() == 0)
+        //                {
+        //                    _logger.LogInformation($"No locations meet requirements for item {line.MasterProductNumber}.");
 
-                            var orderItem = atgOrderRes.items.FirstOrDefault(i => i.lineId == line.LineId);
-                            orderItem.noLocationsMeetRequirements = true;
+        //                    var orderItem = atgOrderRes.items.FirstOrDefault(i => i.lineId == line.LineId);
+        //                    orderItem.noLocationsMeetRequirements = true;
 
-                            foreach (var location in locations.LocationDict)
-                            {
-                                if (requirementController.MeetsSourcingGuidelineRequirement(location.Value, guide))
-                                {
-                                    line.Locations.Add(location.Key, location.Value);
-                                }
-                            }
-                        }
-                    });
-                }
-            }
-            catch(Exception ex)
-            {
-                var title = "Error in SetLineLocationsAndRequirements";
-                var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
-                teamsMessage.LogToTeams(teamsMessage);
-            }
-        }
+        //                    foreach (var location in locations.LocationDict)
+        //                    {
+        //                        if (requirementController.MeetsSourcingGuidelineRequirement(location.Value, guide))
+        //                        {
+        //                            line.Locations.Add(location.Key, location.Value);
+        //                        }
+        //                    }
+        //                }
+        //            });
+        //        }
+        //    }
+        //    catch(Exception ex)
+        //    {
+        //        var title = "Error in SetLineLocationsAndRequirements";
+        //        var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
+        //        teamsMessage.LogToTeams(teamsMessage);
+        //    }
+        //}
     }
 }
