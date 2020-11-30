@@ -26,7 +26,7 @@ namespace FergusonSourcingEngine.Controllers
         public bool DoesLocationMeetRequirements(SingleLine line, string guide, Location location)
         {
             var requirementDict = line.Requirements;
-            var itemData = itemController.items.ItemDataDict[line.MasterProductNumber];
+            var itemData = itemController.items.ItemDict[line.MasterProductNumber];
 
             // Sourcing guide
             if (!MeetsSourcingGuidelineRequirement(location, guide))
@@ -114,7 +114,7 @@ namespace FergusonSourcingEngine.Controllers
             if (item?.preferredShippingMethod == "LTL") 
                 return false;
             
-            var itemData = itemController.items.ItemDataDict[mpn];
+            var itemData = itemController.items.ItemDict[mpn];
 
             if(!itemData.OverpackRequired) 
                 return false;

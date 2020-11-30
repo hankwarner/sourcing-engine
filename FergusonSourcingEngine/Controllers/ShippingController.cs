@@ -214,7 +214,7 @@ namespace FergusonSourcingEngine.Controllers
             if (prefShipMethod == "OVERNIGHT") 
                 return "UNN";
 
-            itemController.items.ItemDataDict.TryGetValue(mpn, out ItemData item);
+            itemController.items.ItemDict.TryGetValue(mpn, out ItemData item);
 
             if (item == null)
                 return "Item data not available.";

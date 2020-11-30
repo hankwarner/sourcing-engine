@@ -404,15 +404,15 @@ namespace FergusonSourcingEngine.Controllers
 
                     var lineId = orderItems[i].lineId;
 
-                    var sourcingGuide = itemController.items.ItemDataDict[mpn].SourcingGuideline;
+                    var sourcingGuide = itemController.items.ItemDict[mpn].SourcingGuideline;
                     // Set sourcing guide on the line
                     orderItems[i].sourcingGuide = sourcingGuide;
 
                     // Rounded items- if it's a broken bulk pack, need to ship from Branch instead of a DC
                     if (sourcingGuide == "Branch" || sourcingGuide == "FEI")
                     {
-                        var isBulkPack = itemController.items.ItemDataDict[mpn].BulkPack;
-                        var bulkPackQuantity = itemController.items.ItemDataDict[mpn].BulkPackQuantity;
+                        var isBulkPack = itemController.items.ItemDict[mpn].BulkPack;
+                        var bulkPackQuantity = itemController.items.ItemDict[mpn].BulkPackQuantity;
 
                         if (isBulkPack && (quantity % bulkPackQuantity != 0))
                         {
@@ -458,7 +458,7 @@ namespace FergusonSourcingEngine.Controllers
             {
                 foreach (var line in lines)
                 {
-                    var vendor = itemController.items.ItemDataDict[line.MasterProductNumber].Vendor;
+                    var vendor = itemController.items.ItemDict[line.MasterProductNumber].Vendor;
 
                     var orderItem = orderController.GetOrderItemByLineId(line.LineId, atgOrderRes);
                     // Set Vendor name on the item line
@@ -745,7 +745,7 @@ namespace FergusonSourcingEngine.Controllers
                 atgOrderRes.items.ForEach(item => 
                 {
                     var mpn = item.masterProdId;
-                    var itemDataExists = itemController.items.ItemDataDict.TryGetValue(mpn, out ItemData itemData);
+                    var itemDataExists = itemController.items.ItemDict.TryGetValue(mpn, out ItemData itemData);
 
                     if (itemDataExists)
                     {
@@ -849,7 +849,7 @@ namespace FergusonSourcingEngine.Controllers
                     var orderItem = orderController.GetOrderItemByLineId(l.LineId, atgOrderRes);
 
                     var mpn = l.MasterProductNumber;
-                    var vendorName = itemController.items.ItemDataDict[mpn].Vendor;
+                    var vendorName = itemController.items.ItemDict[mpn].Vendor;
 
                     // Set Ship From to the selling warehouse branch number for Vendor Direct lines
                     if (guide == "Vendor Direct")
@@ -934,7 +934,7 @@ namespace FergusonSourcingEngine.Controllers
                     foreach (var line in groupedLine)
                     {
                         var mpn = line.MasterProductNumber;
-                        var weight = itemController.items.ItemDataDict[mpn].Weight;
+                        var weight = itemController.items.ItemDict[mpn].Weight;
 
                         cumulativeWeight += weight;
                     }
@@ -1029,8 +1029,7 @@ namespace FergusonSourcingEngine.Controllers
 
                 foreach (var branchNum in branchNumbers)
                 {
-                    //itemController.inventory.InventoryDict[mpn].StockStatus.TryGetValue(branchNum, out bool stockingStatus);
-                    itemController.items.StockingStatusDict[mpn].TryGetValue(branchNum, out bool stockingStatus);
+                    itemController.inventory.InventoryDict[mpn].StockStatus.TryGetValue(branchNum, out bool? stockingStatus);
 
                     if (stockingStatus == true)
                     {
@@ -1240,7 +1239,7 @@ namespace FergusonSourcingEngine.Controllers
                 {
                     var mpn = item.masterProdId;
 
-                    var itemDataExists = itemController.items.ItemDataDict.TryGetValue(mpn, out ItemData itemData);
+                    var itemDataExists = itemController.items.ItemDict.TryGetValue(mpn, out ItemData itemData);
 
                     if (itemDataExists)
                     {

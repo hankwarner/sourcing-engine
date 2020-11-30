@@ -310,7 +310,7 @@ namespace FergusonSourcingEngine.Controllers
         /// </summary>
         /// <param name="distanceDataDict">Dictionary where the key is the branch number and value is distance data, including distance in miles from destination and days in transit.</param>
 #if RELEASE
-        public void AddDistanceDataToLocationDict(Dictionary<string, double> distanceDataDict)
+        public async Task AddDistanceDataToLocationDict(Dictionary<string, double> distanceDataDict)
 #endif
 #if DEBUG
         public async Task AddDistanceDataToLocationDict(Dictionary<string, DistanceData> distanceDataDict)

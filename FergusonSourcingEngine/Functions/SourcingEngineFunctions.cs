@@ -190,49 +190,49 @@ namespace FergusonSourcingEngine
         }
 
 
-        //[ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(AtgOrderRes))]
-        //[ProducesResponseType((int)HttpStatusCode.BadRequest, Type = typeof(BadRequestObjectResult))]
-        //[ProducesResponseType((int)HttpStatusCode.InternalServerError, Type = typeof(BadRequestObjectResult))]
-        //[FunctionName("SourceOrderFromSite")]
-        //public static async Task<IActionResult> SourceOrderFromSite(
-        //    [HttpTrigger(AuthorizationLevel.Function, "post", Route = "order/source"), RequestBodyType(typeof(AtgOrderReq), "product request")] HttpRequest req,
-        //    [CosmosDB(ConnectionStringSetting = "AzureCosmosDBConnectionString"), SwaggerIgnore] DocumentClient cosmosClient,
-        //    ILogger log)
-        //{
-        //    try
-        //    {
-        //        var requestBody = new StreamReader(req.Body).ReadToEnd();
-        //        log.LogInformation(@"Request body: {RequestBody}", requestBody);
+        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(AtgOrderRes))]
+        [ProducesResponseType((int)HttpStatusCode.BadRequest, Type = typeof(BadRequestObjectResult))]
+        [ProducesResponseType((int)HttpStatusCode.InternalServerError, Type = typeof(BadRequestObjectResult))]
+        [FunctionName("SourceOrderFromSite")]
+        public static async Task<IActionResult> SourceOrderFromSite(
+            [HttpTrigger(AuthorizationLevel.Function, "post", Route = "order/source"), RequestBodyType(typeof(AtgOrderReq), "product request")] HttpRequest req,
+            [CosmosDB(ConnectionStringSetting = "AzureCosmosDBConnectionString"), SwaggerIgnore] DocumentClient cosmosClient,
+            ILogger log)
+        {
+            try
+            {
+                var requestBody = new StreamReader(req.Body).ReadToEnd();
+                log.LogInformation(@"Request body: {RequestBody}", requestBody);
 
-        //        var orderReq = JsonConvert.DeserializeObject<AtgOrderReq>(requestBody);
-        //        log.LogInformation($"Order ID: {orderReq.atgOrderId}");
-        //        log.LogInformation(@"Order: {Order}", orderReq);
+                var orderReq = JsonConvert.DeserializeObject<AtgOrderReq>(requestBody);
+                log.LogInformation($"Order ID: {orderReq.atgOrderId}");
+                log.LogInformation(@"Order: {Order}", orderReq);
 
-        //        var atgOrderRes = new AtgOrderRes(orderReq)
-        //        {
-        //            id = orderReq.atgOrderId,
-        //            sourcingMessage = "Order received.",
-        //            sourceFrom = orderReq.sellWhse
-        //        };
+                var atgOrderRes = new AtgOrderRes(orderReq)
+                {
+                    id = orderReq.atgOrderId,
+                    sourcingMessage = "Order received.",
+                    sourceFrom = orderReq.sellWhse
+                };
 
-        //        atgOrderRes.items.ForEach(line => line.shipFrom = orderReq.sellWhse);
+                atgOrderRes.items.ForEach(line => line.shipFrom = orderReq.sellWhse);
 
-        //        var atgOrdersContainerName = Environment.GetEnvironmentVariable("ATG_ORDERS_CONTAINER_NAME");
-        //        var collectionUri = UriFactory.CreateDocumentCollectionUri("sourcing-engine", atgOrdersContainerName);
+                var atgOrdersContainerName = Environment.GetEnvironmentVariable("ATG_ORDERS_CONTAINER_NAME");
+                var collectionUri = UriFactory.CreateDocumentCollectionUri("sourcing-engine", atgOrdersContainerName);
 
-        //        await cosmosClient.UpsertDocumentAsync(collectionUri, atgOrderRes);
+                await cosmosClient.UpsertDocumentAsync(collectionUri, atgOrderRes);
 
-        //        return atgOrderRes != null
-        //            ? (ActionResult)new OkObjectResult(atgOrderRes)
-        //            : new BadRequestObjectResult("Please pass an Order in JSON via the request body");
-        //    }
-        //    catch (Exception e)
-        //    {
-        //        log.LogError(e.Message);
-        //        log.LogError(e.StackTrace);
-        //        return new BadRequestObjectResult(e.Message);
-        //    }
-        //}
+                return atgOrderRes != null
+                    ? (ActionResult)new OkObjectResult(atgOrderRes)
+                    : new BadRequestObjectResult("Please pass an Order in JSON via the request body");
+            }
+            catch (Exception e)
+            {
+                log.LogError(e.Message);
+                log.LogError(e.StackTrace);
+                return new BadRequestObjectResult(e.Message);
+            }
+        }
 
 
         /// <summary>
@@ -246,33 +246,33 @@ namespace FergusonSourcingEngine
         /// <returns>AtgOrder object containing a ship from location for each item.</returns>
         [FunctionName("SourceATGOrder")]
         public async Task SourceATGOrder(
-//            [CosmosDBTrigger(
-//                databaseName: "sourcing-engine",
-//#if RELEASE
-//                collectionName: "atg-orders",
-//                LeaseCollectionName = "sourcing-leases",
-//#endif
-//#if DEBUG
-//                collectionName: "test-atg-orders",
-//                LeaseCollectionName = "test-sourcing-leases",
-//#endif
-//                ConnectionStringSetting = "AzureCosmosDBConnectionString",
-//                CreateLeaseCollectionIfNotExists = true), SwaggerIgnore]IReadOnlyList<Document> documents,
-            [HttpTrigger(AuthorizationLevel.Function, "post", Route = "order/source"), RequestBodyType(typeof(AtgOrderReq), "product request")] HttpRequest req,
+            [CosmosDBTrigger(
+                databaseName: "sourcing-engine",
+#if RELEASE
+                collectionName: "atg-orders",
+                LeaseCollectionName = "sourcing-leases",
+#endif
+#if DEBUG
+                collectionName: "test-atg-orders",
+                LeaseCollectionName = "test-sourcing-leases",
+#endif
+                ConnectionStringSetting = "AzureCosmosDBConnectionString",
+                CreateLeaseCollectionIfNotExists = true), SwaggerIgnore]IReadOnlyList<Document> documents,
+            //[HttpTrigger(AuthorizationLevel.Function, "post", Route = "order/source"), RequestBodyType(typeof(AtgOrderReq), "product request")] HttpRequest req,
             [CosmosDB(ConnectionStringSetting = "AzureCosmosDBConnectionString"), SwaggerIgnore] DocumentClient documentClient,
             ILogger log)
         {
-            //log.LogInformation("SourceATGOrder called");
-            //log.LogInformation(@"documents: {Documents}", documents);
+            log.LogInformation("SourceATGOrder called");
+            log.LogInformation(@"documents: {Documents}", documents);
 
-            //foreach (var document in documents)
-            //{
+            foreach (var document in documents)
+            {
                 try
                 {
-                    var requestBody = new StreamReader(req.Body).ReadToEnd();
-                    var atgOrderReq = JsonConvert.DeserializeObject<AtgOrderReq>(requestBody);
+                    //var requestBody = new StreamReader(req.Body).ReadToEnd();
+                    //var atgOrderReq = JsonConvert.DeserializeObject<AtgOrderReq>(requestBody);
 
-                    //var atgOrderReq = JsonConvert.DeserializeObject<AtgOrderReq>(document.ToString());
+                    var atgOrderReq = JsonConvert.DeserializeObject<AtgOrderReq>(document.ToString());
                     log.LogInformation($"Order ID: {atgOrderReq.atgOrderId}");
                     log.LogInformation(@"Order: {Order}", atgOrderReq);
 
@@ -295,7 +295,7 @@ namespace FergusonSourcingEngine
 
                     log.LogError(@"Error in SourceATGOrder: {E}", ex);
                 }
-            //}
+            }
         }
 
 
