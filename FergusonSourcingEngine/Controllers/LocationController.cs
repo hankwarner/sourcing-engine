@@ -7,7 +7,6 @@ using Polly;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using System.Linq;
-using System.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using System.Threading;
 using Nager.Date;
@@ -18,7 +17,6 @@ namespace FergusonSourcingEngine.Controllers
     public class LocationController
     {
         private ILogger _logger;
-        private RequirementController requirementController { get; set; }
         public Locations locations = new Locations();
 
         public LocationController(ILogger logger)
@@ -26,18 +24,12 @@ namespace FergusonSourcingEngine.Controllers
             _logger = logger;
         }
 
-        public LocationController(ILogger logger, RequirementController requirementController)
-        {
-            _logger = logger;
-            this.requirementController = requirementController;
-        }
-
 
         /// <summary>
         ///     Gets the available locations (local branch logon + all DC's) and builds the Location Dictionary. 
         ///     Values include distance data, location type (DC, Branch, Vendor, etc.), address, and estimated delivery date.
         /// </summary>
-        public async Task<Locations> InitializeLocations(AtgOrderRes atgOrderRes)
+        public async Task InitializeLocations(AtgOrderRes atgOrderRes)
         {
             try
             {
@@ -51,27 +43,20 @@ namespace FergusonSourcingEngine.Controllers
 
                 var sellWarehouse = atgOrderRes.sellWhse ?? "D98 DISTRIBUTION CENTERS";
 
-                var locationDataTask = GetLogonLocationData(sellWarehouse);
-                locations.LocationDict = await locationDataTask;
+                locations.LocationDict = await GetLogonLocationData(sellWarehouse);
 
                 _ = ValidateSellWarehouse(atgOrderRes);
 
-                var distanceDataTask = GetDistanceData(shipToZip);
-                var distanceData = await distanceDataTask;
+                var distanceData = await GetDistanceData(shipToZip);
 
-                await AddDistanceDataToLocationDict(distanceData);
+                var addToDictTask = AddDistanceDataToLocationDict(distanceData);
+                var prefLocationTask = SetPreferredLocationFlag(shipToState, shipToZip);
 
-                // Sets the preferred DC by state
-                await SetPreferredLocationFlag(shipToState, shipToZip);
+                await Task.WhenAll(addToDictTask, prefLocationTask);
 
                 await SortLocations();
 
-                // todo: pull this out of this function
-                // Once the locations dictionary is entirely built out, add locations to each line in All Lines based on sourcing guide and item restrictions
-                //SetLineLocationsAndRequirements(allLines, atgOrderRes);
-
                 _logger.LogInformation("InitializeLocations finish");
-                return locations;
             }
             catch (NullReferenceException ex)
             {
@@ -459,9 +444,7 @@ namespace FergusonSourcingEngine.Controllers
         /// <param name="zip">Customer's shipping state. Used in California's preferred location logic.</param>
         public async Task SetPreferredLocationFlag(string state, string zip)
         {
-            var preferredDCTask = GetPreferredDCByState(state, zip);
-
-            var preferredDC = await preferredDCTask;
+            var preferredDC = await GetPreferredDCByState(state, zip);
             _logger.LogInformation($"Preferred DC {preferredDC}");
 
             if(!string.IsNullOrEmpty(preferredDC))

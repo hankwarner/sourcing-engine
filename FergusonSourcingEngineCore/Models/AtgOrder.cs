@@ -198,6 +198,11 @@ namespace FergusonSourcingCore.Models
 
         public List<ItemRes> items { get; set; }
 
+        public string totalRuntime { get; set; }
+
+        [JsonIgnore]
+        public DateTime startTime { get; set; }
+
         [JsonIgnore]
         public bool validSellWarehouse { get; set; } = true;
 
@@ -206,5 +211,12 @@ namespace FergusonSourcingCore.Models
 
         [JsonIgnore]
         public bool inStockAtALocation { get; set; }
+
+        public void SetTotalRuntime()
+        {
+            var span = DateTime.Now - startTime;
+
+            totalRuntime = $"{span.Seconds} seconds";
+        }
     }
 }

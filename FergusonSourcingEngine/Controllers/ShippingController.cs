@@ -203,7 +203,7 @@ namespace FergusonSourcingEngine.Controllers
         /// <param name="lineQty">Item quantity on the line.</param>
         /// <param name="mpn">Master Product Number of the item.</param>
         /// <returns>The method that the order will be shipped.</returns>
-        public async Task<string> GetItemPreferredShipVia(string prefShipMethod, string mpn, int lineQty, Dictionary<string, ItemData> itemDict)
+        public async Task<string> GetItemPreferredShipVia(string prefShipMethod, string mpn, int lineQty)
         {
             prefShipMethod = prefShipMethod.ToUpper();
 
@@ -214,7 +214,7 @@ namespace FergusonSourcingEngine.Controllers
             if (prefShipMethod == "OVERNIGHT") 
                 return "UNN";
 
-            itemDict.TryGetValue(mpn, out ItemData item);
+            itemController.items.ItemDataDict.TryGetValue(mpn, out ItemData item);
 
             if (item == null)
                 return "Item data not available.";

@@ -276,7 +276,7 @@ namespace FergusonSourcingEngine
                     log.LogInformation($"Order ID: {atgOrderReq.atgOrderId}");
                     log.LogInformation(@"Order: {Order}", atgOrderReq);
 
-                    var atgOrderRes = new AtgOrderRes(atgOrderReq);
+                    var atgOrderRes = new AtgOrderRes(atgOrderReq){ startTime = DateTime.Now };
 
                     var sourcingController = InitializeSourcingController(log);
 
@@ -532,7 +532,7 @@ namespace FergusonSourcingEngine
         {
             var itemController = new ItemController(log);
             var requirementController = new RequirementController(log, itemController);
-            var locationController = new LocationController(log, requirementController);
+            var locationController = new LocationController(log);
             var orderController = new OrderController(log, locationController);
             var shippingController = new ShippingController(log, itemController);
             var sourcingController = new SourcingController(log, itemController, locationController, shippingController, orderController, requirementController);

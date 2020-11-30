@@ -23,13 +23,13 @@ namespace FergusonSourcingEngine.Controllers
         ///     Determines if the specified location meets the item's sourcing requirements.
         /// </summary>
         /// <returns>true if the location meets the item's sourcing requirments.</returns>
-        public bool DoesLocationMeetRequirements(SingleLine line, string guide, Location location, Dictionary<string, ItemData> itemDict)
+        public bool DoesLocationMeetRequirements(SingleLine line, string guide, Location location)
         {
             var requirementDict = line.Requirements;
-            var itemData = itemDict[line.MasterProductNumber];
+            var itemData = itemController.items.ItemDataDict[line.MasterProductNumber];
 
             // Sourcing guide
-            if (!MeetsSourcingGuidelineRequirement(location, guide)) 
+            if (!MeetsSourcingGuidelineRequirement(location, guide))
                 return false;
 
             // Overpack
@@ -88,9 +88,9 @@ namespace FergusonSourcingEngine.Controllers
         /// </summary>
         /// <param name="line">Current line being sourced.</param>
         /// <param name="atgOrderRes">The ATG Order response that will be written to CosmosDB.</param>
-        public void SetLineRequirements(SingleLine line, AtgOrderRes atgOrderRes, Dictionary<string, ItemData> itemDict)
+        public void SetLineRequirements(SingleLine line, AtgOrderRes atgOrderRes)
         {
-            if (LineRequiresOverpackLocation(line.MasterProductNumber, line.Quantity, atgOrderRes, itemDict))
+            if (LineRequiresOverpackLocation(line.MasterProductNumber, line.Quantity, atgOrderRes))
             {
                 line.Requirements.Add("Overpack", true);
             }
@@ -107,14 +107,14 @@ namespace FergusonSourcingEngine.Controllers
         /// <param name="mpn">Master Product Number on the item.</param>
         /// <param name="quantity">Item quantity on the order.</param>
         /// <returns>true if line must be sourced from an overpack capable location.</returns>
-        public bool LineRequiresOverpackLocation(string mpn, int quantity, AtgOrderRes atgOrderRes, Dictionary<string, ItemData> itemDict)
+        public bool LineRequiresOverpackLocation(string mpn, int quantity, AtgOrderRes atgOrderRes)
         {
             var item = atgOrderRes.items.FirstOrDefault(i => i.masterProdId == mpn);
             
             if (item?.preferredShippingMethod == "LTL") 
                 return false;
             
-            var itemData = itemDict[mpn];
+            var itemData = itemController.items.ItemDataDict[mpn];
 
             if(!itemData.OverpackRequired) 
                 return false;

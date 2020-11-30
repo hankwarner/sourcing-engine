@@ -3,12 +3,6 @@ using System.Collections.Generic;
 
 namespace FergusonSourcingCore.Models
 {
-    public class AllItems
-    {
-        // Key = Master Product Number
-        public Dictionary<string, ItemData> ItemDict = new Dictionary<string, ItemData>();
-    }
-
     public class ItemData
     {
         public string MPN { get; set; }
@@ -33,7 +27,9 @@ namespace FergusonSourcingCore.Models
 
         public string PreferredShippingMethod { get; set; } // value from the items table
 
-        // Parses the number used in the preferred shipping method, i.e. "Ground4LTL" will return 4
+        /// <summary>
+        ///     Parses the number used in the preferred shipping method, i.e. "Ground4LTL" will return 4
+        /// </summary>
         public int GroundQuantityThreshold
         {
             get
@@ -54,10 +50,11 @@ namespace FergusonSourcingCore.Models
             }
         }
 
-        // Requirements
+#region Requirements
         public bool OverpackRequired { get; set; }
+#endregion
     }
-    
+
 
 
     public class ItemResponse
