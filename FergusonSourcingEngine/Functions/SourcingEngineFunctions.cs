@@ -142,6 +142,18 @@ namespace FergusonSourcingEngine
 
                 await Task.WhenAll(manualOrderTask, atgOrderTask);
 
+                // Sync with NBSupply Azure tenent DB
+#if RELEASE
+                var url = $"https://fergusonsourcingengine.azurewebsites.net/api/order/{atgOrderId}/status?code=iRSwaEhJGb9E6ZpmM/3r8pvKdXHZ5Cetf1ISrpjNfF3h3rDFJqA91Q==";
+#endif
+#if DEBUG
+                var url = $"https://fergusonsourcingengine-dev.azurewebsites.net/api/order/{atgOrderId}/status?code=j2P2uKfndkdLVlduyTwjkcWla6uErwi8GV5nIa1oCWRMH7RyW0Wtcw==";
+#endif
+                var client = new RestClient(url);
+                var request = new RestRequest(Method.PATCH).AddParameter("application/json; charset=utf-8", reqBody, ParameterType.RequestBody);
+
+                _ = client.ExecuteAsync(request);
+
                 return new OkObjectResult("Success");
             }
             catch (ArgumentException e)
@@ -157,15 +169,20 @@ namespace FergusonSourcingEngine
             }
             catch (Exception e)
             {
-                log.LogError(e, "Exception thrown.");
+                var title = "Error in UpdateTrilogieStatus";
+                var text = $"Error message: {e.Message}. Stacktrace: {e.StackTrace}";
+                var teamsMessage = new TeamsMessage(title, text, "red", errorLogsUrl);
+                teamsMessage.LogToTeams(teamsMessage);
+
+                log.LogError(@"Error in UpdateTrilogieStatus: {E}", e);
                 return new ObjectResult(e.Message) { StatusCode = 500, Value = "Failure" };
             }
         }
 
 
-        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(AtgOrderRes))]
-        [ProducesResponseType((int)HttpStatusCode.BadRequest, Type = typeof(BadRequestObjectResult))]
-        [ProducesResponseType((int)HttpStatusCode.InternalServerError, Type = typeof(BadRequestObjectResult))]
+        [ProducesResponseType(typeof(AtgOrderRes), 200)]
+        [ProducesResponseType(typeof(BadRequestObjectResult), 400)]
+        [ProducesResponseType(typeof(BadRequestObjectResult), 500)]
         [FunctionName("SourceOrderFromSite")]
         public static async Task<IActionResult> SourceOrderFromSite(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = "order/source"), RequestBodyType(typeof(AtgOrderReq), "product request")] HttpRequest req,
@@ -201,8 +218,12 @@ namespace FergusonSourcingEngine
             }
             catch (Exception e)
             {
-                log.LogError(e.Message);
-                log.LogError(e.StackTrace);
+                var title = "Error in SourceOrderFromSite";
+                var text = $"Error message: {e.Message}. Stacktrace: {e.StackTrace}";
+                var teamsMessage = new TeamsMessage(title, text, "red", errorLogsUrl);
+                teamsMessage.LogToTeams(teamsMessage);
+
+                log.LogError(@"Error in SourceOrderFromSite: {E}", e);
                 return new BadRequestObjectResult(e.Message);
             }
         }

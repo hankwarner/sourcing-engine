@@ -20,6 +20,11 @@ namespace FergusonSourcingEngine.Controllers
             this.locationController = locationController;
         }
 
+        public OrderController(LocationController locationController)
+        {
+            this.locationController = locationController;
+        }
+
 
         /// <summary>
         ///     Returns the matching line on the ATG order. Useful when working from the AllLines class and needing to get the matching
@@ -66,7 +71,7 @@ namespace FergusonSourcingEngine.Controllers
             var order = document.CreateDocumentQuery<Document>(collectionUri, query, feedOption)
                 .AsEnumerable().FirstOrDefault();
 
-            if (order == null)
+            if (order == null && typeof(T) == typeof(AtgOrderRes))
             {
                 throw new ArgumentException($"Order with ID {id} does not exist.", "id");
             }
@@ -194,7 +199,7 @@ namespace FergusonSourcingEngine.Controllers
                 }
                 else // create a new manual order
                 {
-                    var orderController = new OrderController(_logger, new LocationController(_logger));
+                    var orderController = new OrderController(new LocationController());
 
                     var orderDoc = await GetOrder<AtgOrderRes>(atgOrderId, document);
                     AtgOrderRes atgOrder = (dynamic)orderDoc;
@@ -222,8 +227,6 @@ namespace FergusonSourcingEngine.Controllers
         /// <returns>The manual order object that was created from the ATG order.</returns>
         public ManualOrder CreateManualOrder(AtgOrderRes order, TrilogieRequest trilogieReq = null)
         {
-            _logger.LogInformation("CreateManualOrder start");
-
             var mOrder = new ManualOrder()
             {
                 id = order.id,
@@ -313,8 +316,6 @@ namespace FergusonSourcingEngine.Controllers
                     source.shipFromLogon = locationController.GetBranchLogonID(branchNum);
                 }
             });
-
-            _logger.LogInformation("CreateManualOrder finish");
 
             return mOrder;
         }
