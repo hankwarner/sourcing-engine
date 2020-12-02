@@ -25,6 +25,9 @@ namespace FergusonSourcingCore.Models
         public string sourceSystem { get; set; }
         public string id { get; set; }
         public string notes { get; set; }
+        public string trilogieErrorMessage { get; set; } = "";
+        public string trilogieStatus { get; set; } = "Waiting on Trilogie response.";
+        public string trilogieOrderId { get; set; } = "";
     }
 
     public partial class ManualPaymentOnAccount
