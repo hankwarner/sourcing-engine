@@ -51,10 +51,12 @@ namespace FergusonSourcingEngine.Controllers
             }
             catch(Exception ex)
             {
+#if RELEASE
                 var title = "Error in InitializeItems";
                 var teamsMessage = new TeamsMessage(title, $"Order Id: {atgOrderRes.atgOrderId}. Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
-                _logger.LogError(title);
+#endif
+                _logger.LogError(ex, "Error in InitializeItems");
                 throw;
             }
         }

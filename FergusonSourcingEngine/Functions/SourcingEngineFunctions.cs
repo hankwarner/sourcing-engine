@@ -218,10 +218,12 @@ namespace FergusonSourcingEngine
             }
             catch (Exception e)
             {
+#if RELEASE
                 var title = "Error in SourceOrderFromSite";
                 var text = $"Error message: {e.Message}. Stacktrace: {e.StackTrace}";
                 var teamsMessage = new TeamsMessage(title, text, "red", errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
+#endif
 
                 log.LogError(@"Error in SourceOrderFromSite: {E}", e);
                 return new BadRequestObjectResult(e.Message);

@@ -157,11 +157,13 @@ namespace FergusonSourcingEngine.Controllers
             }
             catch (Exception ex)
             {
+#if RELEASE
                 var title = "Exception in SourceOrder";
                 var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
                 var teamsMessage = new TeamsMessage(title, text, "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
-                _logger.LogError(title);
+#endif
+                _logger.LogError("Exception in SourceOrder");
                 throw;
             }
         }
