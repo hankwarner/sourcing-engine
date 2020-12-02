@@ -24,6 +24,8 @@ namespace FergusonSourcingEngine.Controllers
             _logger = logger;
         }
 
+        public LocationController(){ }
+
 
         /// <summary>
         ///     Gets the available locations (local branch logon + all DC's) and builds the Location Dictionary. 
