@@ -115,77 +115,50 @@ namespace FergusonSourcingEngine
         }
 
 
-
         /// <summary>
-        ///     Flags an order as error as failed by setting process sourcing to false, sourcing message to the failed order message, and creating a manual order so a rep an intervene.
+        ///     Endpoint for receiving the response from Trilogie and update the Trilogie status, err message and order ID on the ATGOrder and ManualOrder in CosmosDB.
         /// </summary>
         /// <param name="req">Patch request containing a FailedOrder object with a message to set on the ATG order.</param>
-        /// <param name="id">ID of the ATG Order.</param>
-        /// <returns>The updated ATG Order.</returns>
-        [ProducesResponseType((int)HttpStatusCode.OK, Type = typeof(AtgOrderRes))]
-        [ProducesResponseType((int)HttpStatusCode.NotFound, Type = typeof(NotFoundObjectResult))]
-        [ProducesResponseType((int)HttpStatusCode.BadRequest, Type = typeof(BadRequestObjectResult))]
-        [ProducesResponseType((int)HttpStatusCode.InternalServerError, Type = typeof(BadRequestObjectResult))]
-        [FunctionName("UpdateOrderToFailed")]
-        public static async Task<IActionResult> UpdateOrderToFailed(
-            [HttpTrigger(AuthorizationLevel.Function, "patch", Route = "order/{id}/fail"), RequestBodyType(typeof(FailedOrder), "failed order")] HttpRequest req,
+        /// <param name="atgOrderId">ID of the original ATG Order. Should match an existing order in CosmosDB.</param>
+        [ProducesResponseType(typeof(string), 200)]
+        [ProducesResponseType(typeof(BadRequestObjectResult), 400)]
+        [ProducesResponseType(typeof(NotFoundObjectResult), 404)]
+        [ProducesResponseType(typeof(ObjectResult), 500)]
+        [FunctionName("UpdateTrilogieStatus")]
+        public static async Task<IActionResult> UpdateTrilogieStatus(
+            [HttpTrigger(AuthorizationLevel.Function, "patch", Route = "order/{atgOrderId}/status"), RequestBodyType(typeof(TrilogieRequest), "Trilogie status")] HttpRequest req,
             [CosmosDB(ConnectionStringSetting = "AzureCosmosDBConnectionString"), SwaggerIgnore] DocumentClient document,
             ILogger log,
-            string id)
+            string atgOrderId)
         {
             try
             {
                 var reqBody = new StreamReader(req.Body).ReadToEnd();
-                var failedOrder = JsonConvert.DeserializeObject<FailedOrder>(reqBody);
-                // TODO: will message be passed in or hard coded?
-                //var message = "Failed Trilogie order.";
-                log.LogInformation($"ID: {id}");
-                log.LogInformation("Request body: {failedOrder}", failedOrder);
+                var trilogieReq = JsonConvert.DeserializeObject<TrilogieRequest>(reqBody);
+                log.LogInformation($"ID: {atgOrderId}. TrilogieOrderId: {trilogieReq.TrilogieOrderId}. TrilogieStatus: {trilogieReq.TrilogieStatus}.TrilogieErrorMessage: {trilogieReq.TrilogieErrorMessage}");
 
-                var orderDoc = OrderController.GetOrder<AtgOrderRes>(id, document);
+                var manualOrderTask = OrderController.UpdateTrilogieStatusOnManualOrder(atgOrderId, document, trilogieReq);
+                var atgOrderTask = OrderController.UpdateTrilogieStatusOnAtgOrder(atgOrderId, document, trilogieReq);
 
-                AtgOrderRes order = (dynamic)orderDoc;
+                await Task.WhenAll(manualOrderTask, atgOrderTask);
 
-                order.sourcingMessage = failedOrder?.Message ?? "Failed Trilogie order.";
-                order.processSourcing = false;
-
-                await document.ReplaceDocumentAsync(orderDoc.SelfLink, order);
-
-                var manualOrderDoc = OrderController.GetOrder<ManualOrder>(id, document);
-
-                ManualOrder manualOrder = (dynamic)manualOrderDoc;
-
-                // update the manual order if it exists
-                if (manualOrder != null)
-                {
-                    manualOrder.sourcingMessage = failedOrder.Message;
-                    manualOrder.orderComplete = false;
-                }
-                else // create a new manual order
-                {
-                    var orderController = new OrderController(log, new LocationController(log));
-
-                    manualOrder = orderController.CreateManualOrder(order);
-                }
-
-                var containerName = Environment.GetEnvironmentVariable("MANUAL_ORDERS_CONTAINER_NAME");
-                var collectionUri = UriFactory.CreateDocumentCollectionUri("sourcing-engine", containerName);
-
-                await document.UpsertDocumentAsync(collectionUri, manualOrder);
-
-                return new OkObjectResult(order);
+                return new OkObjectResult("Success");
             }
             catch (ArgumentException e)
             {
-                log.LogError(e.Message);
-                log.LogError(e.StackTrace);
-                return new NotFoundObjectResult(e.Message);
+                log.LogError(e, "ArgumentException thrown.");
+                return new NotFoundObjectResult(e.Message) { Value = e.Message }; ;
+            }
+            catch (JsonSerializationException e)
+            {
+                log.LogError(e, "JsonSerializationException thrown.");
+                var msg = "Unable to deserialize JSON request. Ensure that trilogieStatus is 'Pass' or 'Fail' and all other data types are correct.";
+                return new BadRequestObjectResult(e.Message) { Value = msg };
             }
             catch (Exception e)
             {
-                log.LogError(e.Message);
-                log.LogError(e.StackTrace);
-                return new BadRequestObjectResult(e.Message);
+                log.LogError(e, "Exception thrown.");
+                return new ObjectResult(e.Message) { StatusCode = 500, Value = "Failure" };
             }
         }
 
@@ -379,6 +352,7 @@ namespace FergusonSourcingEngine
         ///     Re-runs sourcing logic on orders that are incomplete to ensure that the order is sourced using the most up to date inventory values.
         ///     If any are found, run the sourcing engine and create the sourced order in the orders container.
         /// </summary>
+        [SwaggerIgnore]
         [FunctionName("RunSourcingOnStaleOrders")]
         public static async Task RunSourcingOnStaleOrders(
             [HttpTrigger(AuthorizationLevel.Function, "get")] HttpRequest req,

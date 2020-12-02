@@ -198,6 +198,12 @@ namespace FergusonSourcingCore.Models
 
         public List<ItemRes> items { get; set; }
 
+        public string trilogieErrorMessage { get; set; } = "";
+
+        public string trilogieStatus { get; set; } = "Waiting on Trilogie response.";
+
+        public string trilogieOrderId { get; set; } = "";
+
         public string totalRuntime { get; set; }
 
         [JsonIgnore]
