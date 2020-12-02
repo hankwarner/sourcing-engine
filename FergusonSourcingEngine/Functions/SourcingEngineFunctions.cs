@@ -142,6 +142,18 @@ namespace FergusonSourcingEngine
 
                 await Task.WhenAll(manualOrderTask, atgOrderTask);
 
+                // Sync with NBSupply Azure tenent DB
+#if RELEASE
+                var url = $"https://fergusonsourcingengine.azurewebsites.net/api/order/{atgOrderId}/status?code=iRSwaEhJGb9E6ZpmM/3r8pvKdXHZ5Cetf1ISrpjNfF3h3rDFJqA91Q==";
+#endif
+#if DEBUG
+                var url = $"https://fergusonsourcingengine-dev.azurewebsites.net/api/order/{atgOrderId}/status?code=j2P2uKfndkdLVlduyTwjkcWla6uErwi8GV5nIa1oCWRMH7RyW0Wtcw==";
+#endif
+                var client = new RestClient(url);
+                var request = new RestRequest(Method.POST).AddParameter("application/json; charset=utf-8", reqBody, ParameterType.RequestBody);
+
+                _ = client.ExecuteAsync(request);
+
                 return new OkObjectResult("Success");
             }
             catch (ArgumentException e)
