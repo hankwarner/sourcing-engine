@@ -62,16 +62,21 @@ namespace FergusonSourcingEngine.Controllers
             }
             catch (NullReferenceException ex)
             {
-                _logger.LogWarning(@"Missing required field: {E}", ex);
+                var title = "Missing required field: {E}";
+                _logger.LogWarning(ex, title);
+#if RELEASE
+                var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
+                teamsMessage.LogToTeams(teamsMessage);
+#endif
             }
             catch (Exception ex)
             {
                 var title = "Error in StartSourcing";
-                var text = $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
-                var teamsMessage = new TeamsMessage(title, text, "red", SourcingEngineFunctions.errorLogsUrl);
-                teamsMessage.LogToTeams(teamsMessage);
-
                 _logger.LogError(ex, title);
+#if RELEASE
+                var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
+                teamsMessage.LogToTeams(teamsMessage);
+#endif
             }
         }
 
@@ -150,20 +155,20 @@ namespace FergusonSourcingEngine.Controllers
             catch(KeyNotFoundException ex)
             {
                 var title = "KeyNotFoundException in SourceOrder";
-                var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
-                var teamsMessage = new TeamsMessage(title, text, "red", SourcingEngineFunctions.errorLogsUrl);
-                teamsMessage.LogToTeams(teamsMessage);
                 _logger.LogError(title);
+#if RELEASE
+                var teamsMessage = new TeamsMessage(title, $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
+                teamsMessage.LogToTeams(teamsMessage);
+#endif
             }
             catch (Exception ex)
             {
-#if RELEASE
                 var title = "Exception in SourceOrder";
-                var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
-                var teamsMessage = new TeamsMessage(title, text, "red", SourcingEngineFunctions.errorLogsUrl);
+                _logger.LogError(ex, title);
+#if RELEASE
+                var teamsMessage = new TeamsMessage(title, $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
 #endif
-                _logger.LogError("Exception in SourceOrder");
                 throw;
             }
         }
@@ -1204,7 +1209,7 @@ namespace FergusonSourcingEngine.Controllers
                 {
                     var branchNum = location.Key;
                     var details = location.Value;
-                    _logger.LogInformation($"Location: {branchNum}");
+                    _logger.LogInformation($"Location: {branchNum}. Dist: {details.Distance}. DaysInTrans: {details.BusinessDaysInTransit}. EstDelivery: {details.EstDeliveryDate}.");
 
                     itemController.mpns.ForEach(mpn =>
                     {
@@ -1215,11 +1220,7 @@ namespace FergusonSourcingEngine.Controllers
             }
             catch(Exception ex)
             {
-                var title = "Error in LogLocationAndItemInventory";
-                var text = $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
-                var color = "yellow";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
-                teamsMessage.LogToTeams(teamsMessage);
+                _logger.LogWarning(ex, "Exception in LogLocationAndItemInventory");
             }
         }
 
@@ -1254,10 +1255,11 @@ namespace FergusonSourcingEngine.Controllers
             catch(Exception ex)
             {
                 var title = "Error in SetVendorOnOrderLines";
-                var text = $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
-                var color = "yellow";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
+                _logger.LogError(ex, title);
+#if RELEASE
+                var teamsMessage = new TeamsMessage(title, $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "yellow", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
+#endif
             }
         }
 
@@ -1341,8 +1343,11 @@ namespace FergusonSourcingEngine.Controllers
             catch (Exception ex)
             {
                 var title = "Error in SetLineLocationsAndRequirements";
+                _logger.LogError(ex, title);
+#if RELEASE
                 var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
+#endif
             }
         }
     }
