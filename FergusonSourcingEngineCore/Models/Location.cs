@@ -55,7 +55,8 @@ namespace FergusonSourcingCore.Models
                     addressLine1 = Address1.Replace("\n", "").Replace("\r", ""),
                     city = City.Replace("\n", "").Replace("\r", ""),
                     state = State.Replace("\n", "").Replace("\r", ""),
-                    zip = Zip.Substring(0, 5)
+                    zip = Zip.Substring(0, 5),
+                    branchNumber = BranchNumber
                 };
             }
         }
