@@ -49,9 +49,9 @@ namespace FergusonSourcingEngine.Controllers
                 _ = ValidateSellWarehouse(atgOrderRes);
 
                 var distanceData = await GetDistanceData(shipToZip);
-
+#if DEBUG
                 await ValidateDistanceData(distanceData);
-
+#endif
                 var addToDictTask = AddDistanceDataToLocationDict(distanceData);
                 var prefLocationTask = SetPreferredLocationFlag(shipToState, shipToZip);
 
@@ -106,6 +106,15 @@ namespace FergusonSourcingEngine.Controllers
         /// </summary>
         public async Task SortLocations()
         {
+#if RELEASE
+            locations.LocationDict = locations.LocationDict.OrderByDescending(l => l.Value.IsPreferred)
+                .ThenByDescending(l => l.Value.DCLocation)
+                .ThenByDescending(l => l.Value.ShipHub)
+                .ThenByDescending(l => l.Value.WarehouseManagementSoftware)
+                .ThenBy(l => l.Value.Distance)
+                .ToDictionary(l => l.Key, l => l.Value);
+#endif
+#if DEBUG
             locations.LocationDict = locations.LocationDict.OrderByDescending(l => l.Value.IsPreferred)
                 .ThenByDescending(l => l.Value.DCLocation)
                 .ThenByDescending(l => l.Value.ShipHub)
@@ -114,6 +123,7 @@ namespace FergusonSourcingEngine.Controllers
                 .ThenBy(l => l.Value.BusinessDaysInTransit)
                 .ThenBy(l => l.Value.Distance)
                 .ToDictionary(l => l.Key, l => l.Value);
+#endif
         }
 
 
@@ -217,7 +227,12 @@ namespace FergusonSourcingEngine.Controllers
         /// </summary>
         /// <param name="shippingZip">Customer's shipping zip code.</param>
         /// <returns>Dictionary where key is branch number and value is location data.</returns>
+#if RELEASE
+        public async Task<Dictionary<string, double>> GetDistanceData(string shippingZip)
+#endif
+#if DEBUG
         public async Task<Dictionary<string, DistanceData>> GetDistanceData(string shippingZip)
+#endif
         {
             var retryPolicy = Policy.Handle<Exception>().Retry(10, (ex, count) =>
             {
@@ -239,9 +254,12 @@ namespace FergusonSourcingEngine.Controllers
                 var allBranchNumbers = locations.LocationDict.Keys;
                 var requestBody = new List<string>(allBranchNumbers);
                 var jsonRequest = JsonConvert.SerializeObject(requestBody);
-
+#if RELEASE
+                var baseUrl = @"https://service-sourcing.supply.com/api/v2/DistanceData/GetBranchDistancesByZipCode/";
+#endif
+#if DEBUG
                 var baseUrl = @"https://service-sourcing.supply.com/api/v2/DistanceData/GetBranchDistancesByZipCodeNew/";
-
+#endif
                 shippingZip = shippingZip.Substring(0, 5);
                 var client = new RestClient(baseUrl + shippingZip);
 
@@ -254,7 +272,10 @@ namespace FergusonSourcingEngine.Controllers
 
                 var response = await distanceDataTask;
                 var jsonResponse = response.Content;
-
+#if RELEASE
+                var distanceData = JsonConvert.DeserializeObject<Dictionary<string, double>>(jsonResponse);
+#endif
+#if DEBUG
                 var distanceData = new Dictionary<string, DistanceData>();
 
                 try
@@ -262,14 +283,14 @@ namespace FergusonSourcingEngine.Controllers
                     distanceData = JsonConvert.DeserializeObject<Dictionary<string, DistanceData>>(jsonResponse);
                 }
                 // If this ex is thrown, it means the business days in transit do not exist yet and it timed out while calling UPS.
-                catch(JsonReaderException ex)
+                catch (JsonReaderException ex)
                 {
                     _logger.LogWarning(ex, "Error parsing distance data response.");
                     // Wait 10 seconds for DB to write all of the days in transit values before calling again.
                     Thread.Sleep(10000);
                     throw;
                 }
-
+#endif
                 if (distanceData == null)
                     throw new Exception("Distance data returned null.");
 
@@ -310,7 +331,12 @@ namespace FergusonSourcingEngine.Controllers
         ///     exist in the location dict, it will not be added.
         /// </summary>
         /// <param name="distanceDataDict">Dictionary where the key is the branch number and value is distance data, including distance in miles from destination and days in transit.</param>
+#if RELEASE
+        public async Task AddDistanceDataToLocationDict(Dictionary<string, double> distanceDataDict)
+#endif
+#if DEBUG
         public async Task AddDistanceDataToLocationDict(Dictionary<string, DistanceData> distanceDataDict)
+#endif
         {
             try
             {
@@ -322,6 +348,10 @@ namespace FergusonSourcingEngine.Controllers
 
                     if (hasExistingDictEntry)
                     {
+#if RELEASE
+                        locations.LocationDict[branchNumber].Distance = distanceData;
+#endif
+#if DEBUG
                         locationData.Distance = distanceData.DistanceFromZip;
                         locationData.BusinessDaysInTransit = distanceData.BusinessTransitDays;
 
@@ -331,6 +361,7 @@ namespace FergusonSourcingEngine.Controllers
 
                             locationData.EstDeliveryDate = await GetEstDeliveryDate(locationData);
                         }
+#endif
                     }
                 }
             }
