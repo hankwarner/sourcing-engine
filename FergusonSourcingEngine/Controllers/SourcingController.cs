@@ -1209,8 +1209,12 @@ namespace FergusonSourcingEngine.Controllers
                 {
                     var branchNum = location.Key;
                     var details = location.Value;
+#if RELEASE
+                    _logger.LogInformation($"Location: {branchNum}. Dist: {details.Distance}.");
+#endif
+#if DEBUG
                     _logger.LogInformation($"Location: {branchNum}. Dist: {details.Distance}. DaysInTrans: {details.BusinessDaysInTransit}. EstDelivery: {details.EstDeliveryDate}.");
-
+#endif
                     itemController.mpns.ForEach(mpn =>
                     {
                         itemController.inventory.InventoryDict[mpn].Available.TryGetValue(branchNum, out int currLocationInventory);
