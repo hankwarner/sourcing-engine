@@ -133,6 +133,19 @@ namespace FergusonSourcingEngine.Controllers
 
 
         /// <summary>
+        ///     Gets the current Eastern Standard Time hour.
+        /// </summary>
+        /// <returns>Current EST hour in 24-hour format.</returns>
+        public static int GetCurrentEasternHour()
+        {
+            var easternStandardTime = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+            var currentEasternTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, easternStandardTime);
+
+            return currentEasternTime.Hour;
+        }
+
+
+        /// <summary>
         ///     Iterates through order items and returns true if any valid item is missing a shipFrom value.
         /// </summary>
         /// <param name="atgOrderRes">ATG Order object containing line items with shipFrom values.</param>
