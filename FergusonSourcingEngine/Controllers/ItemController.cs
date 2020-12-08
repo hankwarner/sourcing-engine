@@ -253,7 +253,7 @@ namespace FergusonSourcingEngine.Controllers
         ///     Gets inventory from Manhattan tables and adds it to the Inventory Dictionary under the Available property,
         ///     resulting in a dictionary of branch number/inventory key value pairs for each location.
         /// </summary>
-        public async Task InitializeInventory()
+        public async Task InitializeInventory(AtgOrderRes atgOrderRes)
         {
             try
             {
@@ -264,17 +264,20 @@ namespace FergusonSourcingEngine.Controllers
 
                 var domInventory = await ParseInventoryResponse(inventoryResponse);
 
-                // Add DOM inventory to inventoryDict available location data
-                _ = AddAvailableInventoryToDict(domInventory.InventoryData);
+                // Add DOM inventory to inventoryDict
+                await AddAvailableInventoryToDict(domInventory.InventoryData);
 
                 _logger.LogInformation("InitializeInventory finish");
             }
             catch(Exception ex)
             {
-                var title = "Error in InitializeInventory";
+                var title = $"Error in InitializeInventory. Order Id: {atgOrderRes.atgOrderId}";
+#if RELEASE
                 var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
-                _logger.LogError(title);
+#endif
+                _logger.LogError(ex, title);
+                throw;
             }
         }
 
@@ -301,8 +304,10 @@ namespace FergusonSourcingEngine.Controllers
 
                 var url = @"https://erebus.nbsupply.com:443/WebServices/Inventory/RequestInventoryFromDomB2CStorefront";
 
-                var client = new RestClient(url);
-                client.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
+                var client = new RestClient(url)
+                {
+                    RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true
+                };
 
                 var request = new RestRequest(Method.POST)
                     .AddHeader("Content-Type", "text/plain")

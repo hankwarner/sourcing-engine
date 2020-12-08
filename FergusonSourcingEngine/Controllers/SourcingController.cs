@@ -96,7 +96,7 @@ namespace FergusonSourcingEngine.Controllers
                 // Get the product data, sourcing guide, stocking statuses for each item
                 var itemTask = itemController.InitializeItems(atgOrderRes);
                 var initLocationsTask = locationController.InitializeLocations(atgOrderRes);
-                var initInventoryTask = itemController.InitializeInventory();
+                var initInventoryTask = itemController.InitializeInventory(atgOrderRes);
 
                 await itemTask;
 
