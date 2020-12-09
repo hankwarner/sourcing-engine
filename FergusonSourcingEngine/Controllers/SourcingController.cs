@@ -37,20 +37,9 @@ namespace FergusonSourcingEngine.Controllers
             {
                 await SourceOrder(atgOrderRes);
 
-                if (!atgOrderRes.processSourcing)
-                {
-                    _logger.LogInformation(@"atgOrderRes before CreateManualOrder: {AtgOrderRes}", atgOrderRes);
-                    var manualOrder = orderController.CreateManualOrder(atgOrderRes);
-
-                    var manualOrdersContainerName = Environment.GetEnvironmentVariable("MANUAL_ORDERS_CONTAINER_NAME");
-
-                    var uri = UriFactory.CreateDocumentCollectionUri("sourcing-engine", manualOrdersContainerName);
-
-                    await documentClient.UpsertDocumentAsync(uri, manualOrder);
-                }
+                _logger.LogInformation(@"Sourced order: {Order}", atgOrderRes);
 
                 atgOrderRes.SetTotalRuntime();
-                _logger.LogInformation(@"Order at end: {Order}", atgOrderRes);
 
                 // Write order to Cosmos DB
                 var ordersContainerName = Environment.GetEnvironmentVariable("ORDERS_CONTAINER_NAME");

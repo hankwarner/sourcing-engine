@@ -158,7 +158,7 @@ namespace FergusonSourcingEngine.Controllers
 
                 if (string.IsNullOrEmpty(item.shipFrom)) return true;
             }
-            
+
             return false;
         }
 
@@ -236,101 +236,85 @@ namespace FergusonSourcingEngine.Controllers
         /// <summary>
         ///     Creates a new manual order object for orders that cannot be auto-sourced and require manual intervention by a rep.
         /// </summary>
-        /// <param name="order">ATG Order with sourcing fields.</param>
+        /// <param name="atgOrderRes">ATG Order with sourcing fields.</param>
         /// <returns>The manual order object that was created from the ATG order.</returns>
-        public ManualOrder CreateManualOrder(AtgOrderRes order, TrilogieRequest trilogieReq = null)
+        public ManualOrder CreateManualOrder(AtgOrderRes atgOrderRes, TrilogieRequest trilogieReq = null)
         {
-            var mOrder = new ManualOrder()
+            try
             {
-                id = order.id,
-                atgOrderId = order.atgOrderId,
-                custAccountId = order.custAccountId,
-                customerId = order.customerId,
-                customerName = order.customerName,
-                orderSubmitDate = order.orderSubmitDate,
-                sellWhse = order.sellWhse,
-                sourcingMessage = order.sourcingMessage,
-                processOrderType = "manual",
-                claimed = false,
-                orderComplete = false,
-                sourceSystem = order.sourceSystem,
-                orderRequiredDate = order.orderRequiredDate,
-                notes = order.notes,
-                trilogieErrorMessage = trilogieReq?.TrilogieErrorMessage ?? "",
-                trilogieOrderId = trilogieReq?.TrilogieOrderId ?? "",
-                trilogieStatus = trilogieReq?.TrilogieStatus.ToString() ?? "Waiting on Trilogie response.",
-                paymentOnAccount = new ManualPaymentOnAccount()
-                {
-                    payment = new ManualPayment()
-                    {
-                        address1 = order.paymentOnAccount?.First().address1,
-                        address2 = order.paymentOnAccount?.First().address2,
-                        cardType = order.paymentOnAccount?.First().cardType,
-                        city = order.paymentOnAccount?.First().city,
-                        state = order.paymentOnAccount?.First().state,
-                        zip = order.paymentOnAccount?.First().zip,
-                        phone = order.paymentOnAccount?.First().phone
-                    }
-                },
-                shipping = new ManualShipping()
-                {
-                    price = order.shipping?.price,
-                    shipViaCode = order.shipping?.shipViaCode,
-                    shipVia = order.shipping?.shipVia,
-                    shipTo = new ManualShipTo()
-                    {
-                        address1 = order.shipping.shipTo?.address1,
-                        address2 = order.shipping.shipTo?.address2,
-                        city = order.shipping.shipTo?.city,
-                        country = order.shipping.shipTo?.country,
-                        name = order.shipping.shipTo?.name,
-                        shipInstructionsPhoneNumberAreaDialing = order.shipping.shipTo?.shipInstructionsPhoneNumberAreaDialing,
-                        shipInstructionsPhoneNumberDialNumber = order.shipping.shipTo?.shipInstructionsPhoneNumberDialNumber,
-                        state = order.shipping.shipTo?.state,
-                        zip = order.shipping.shipTo?.zip
-                    }
-                },
-                sourcing = order.items.GroupBy(item =>
-                    item.shipFrom,
-                    item => item,
-                    (key, group) => new Sourcing()
-                    {
-                        shipFrom = key,
-                        sourceComplete = order.sourceComplete,
-                        items = group.Select(item => new ManualItem()
-                        {
-                            lineItemId = item.lineId,
-                            unitPrice = item.unitPrice,
-                            unitPriceCode = item.unitPriceCode,
-                            extendedPrice = item.extendedPrice,
-                            description = item.itemDescription,
-                            quantity = item.quantity,
-                            sourcingMessage = item.sourcingMessage,
-                            masterProdId = item.masterProdId,
-                            itemComplete = false,
-                            sourcingGuide = item.sourcingGuide,
-                            vendor = item.vendor,
-                            preferredShipVia = item.preferredShipVia,
-                            alt1Code = item.alt1Code
-                        }).ToList()
-                    }).ToList()
-            };
+                var manualOrder = new ManualOrder(atgOrderRes, trilogieReq);
 
-            var sellWarehouse = order.sellWhse ?? "D98 DISTRIBUTION CENTERS";
+                SetLogons(manualOrder);
 
-            mOrder.sellLogon = locationController.GetBranchLogonID(sellWarehouse);
-
-            mOrder.sourcing.ForEach(source =>
+                return manualOrder;
+            }
+            catch (Exception ex)
             {
-                var branchNum = source.shipFrom;
+                var title = $"Error in CreateOrUpdateManualOrder. Order ID: {atgOrderRes.atgOrderId}.";
+                _logger.LogError(@"{Title} {Ex}", title, ex);
+#if RELEASE
+                var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngine.errorLogsUrl);
+                teamsMessage.LogToTeams(teamsMessage);
+#endif
+                throw;
+            }
+        }
 
-                if (!string.IsNullOrEmpty(branchNum))
+
+        /// <summary>
+        ///     Updates an existing ManualOrder based on the ATG Order values, but does not overwrite the existing claimed, completed or notes values.
+        /// </summary>
+        /// <param name="atgOrderRes">ATG Order with sourcing fields.</param>
+        /// <param name="manualOrderDoc">CosmosDB document that can be parsed to get the existing manual order.</param>
+        /// <returns>The updated ManualOrder object.</returns>
+        public ManualOrder UpdateManualOrder(AtgOrderRes atgOrderRes, Document manualOrderDoc)
+        {
+            try
+            {
+                ManualOrder existingManualOrder = (dynamic)manualOrderDoc;
+
+                var updatedManualOrder = new ManualOrder(atgOrderRes)
                 {
-                    source.shipFromLogon = locationController.GetBranchLogonID(branchNum);
+                    // Do not overwrite values that can be set by an ATG rep
+                    claimed = existingManualOrder.claimed,
+                    timeClaimed = existingManualOrder.timeClaimed,
+                    orderComplete = existingManualOrder.orderComplete,
+                    timeCompleted = existingManualOrder.timeCompleted,
+                    notes = existingManualOrder.notes
+                };
+
+                SetLogons(updatedManualOrder);
+
+                return updatedManualOrder;
+            }
+            catch (Exception ex)
+            {
+                var title = $"Error in UpdateManualOrder. Order ID: {atgOrderRes.atgOrderId}.";
+                _logger.LogError(@"{Title} {Ex}", title, ex);
+#if RELEASE
+                var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngine.errorLogsUrl);
+                teamsMessage.LogToTeams(teamsMessage);
+#endif
+                throw;
+            }
+        }
+
+
+        /// <summary>
+        ///     Sets the shipFromLogon value for each line item based on the shipFrom value.
+        /// </summary>
+        /// <param name="manualOrder">Manual Order object containing shipFrom values for each line item.</param>
+        public void SetLogons(ManualOrder manualOrder)
+        {
+            manualOrder.sellLogon = locationController.GetBranchLogonID(manualOrder.sellWhse);
+
+            manualOrder.sourcing.ForEach(source =>
+            {
+                if (!string.IsNullOrEmpty(source.shipFrom))
+                {
+                    source.shipFromLogon = locationController.GetBranchLogonID(source.shipFrom);
                 }
             });
-
-            return mOrder;
         }
     }
 }
