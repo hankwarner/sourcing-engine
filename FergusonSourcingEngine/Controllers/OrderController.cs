@@ -253,7 +253,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = $"Error in CreateOrUpdateManualOrder. Order ID: {atgOrderRes.atgOrderId}.";
                 _logger.LogError(@"{Title} {Ex}", title, ex);
 #if RELEASE
-                var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
 #endif
                 throw;
@@ -292,7 +292,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = $"Error in UpdateManualOrder. Order ID: {atgOrderRes.atgOrderId}.";
                 _logger.LogError(@"{Title} {Ex}", title, ex);
 #if RELEASE
-                var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngine.errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
 #endif
                 throw;
