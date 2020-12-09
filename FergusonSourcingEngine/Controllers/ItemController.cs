@@ -8,6 +8,7 @@ using RestSharp;
 using Polly;
 using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
+using System.Net;
 
 namespace FergusonSourcingEngine.Controllers
 {
@@ -316,9 +317,14 @@ namespace FergusonSourcingEngine.Controllers
                 var inventoryDataTask = client.ExecuteAsync(request);
 
                 var response = await inventoryDataTask;
+                _logger.LogInformation($"Raw response Content: {response?.Content}");
+                _logger.LogInformation($"Raw response ResponseStatus: {response?.ResponseStatus}");
+                _logger.LogInformation($"Raw response StatusCode: {response?.StatusCode}");
+                _logger.LogInformation($"Raw response ErrorException: {response?.ErrorException}");
+                _logger.LogInformation($"Raw ErrorMessage: {response?.ErrorMessage}");
                 var jsonResponse = response.Content;
 
-                if (jsonResponse.Substring(0, 1) == "<")
+                if (jsonResponse.Substring(0, 1) == "<" || response?.StatusCode != HttpStatusCode.OK)
                 {
                     throw new Exception($"Erebus returned an invalid response: {jsonResponse}");
                 }
