@@ -97,8 +97,7 @@ namespace FergusonSourcingCore.Models
         [JsonIgnore]
         public string preferredShippingMethod { get; set; }
         public string preferredShipVia { get; set; } // Trilogie Ship Via code
-
-        [JsonIgnore]
+        
         public string vendor { get; set; }
 
         [JsonIgnore]
