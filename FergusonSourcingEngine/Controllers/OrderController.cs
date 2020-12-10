@@ -41,7 +41,7 @@ namespace FergusonSourcingEngine.Controllers
         /// <summary>
         ///     Queries the container of type T for a single order matching on id. Throws exception if no order is found.
         /// </summary>
-        /// <typeparam name="T">ManualOrder or AtgOrderRes</typeparam>
+        /// <typeparam name="T">ManualOrder, AtgOrderRes or AtgOrderReq</typeparam>
         /// <param name="id">ID of the ATG order</param>
         /// <param name="document">Cosmos Document Client</param>
         /// <returns></returns>
@@ -57,6 +57,10 @@ namespace FergusonSourcingEngine.Controllers
             {
                 envVariableName = "ORDERS_CONTAINER_NAME";
             }
+            else if (typeof(T) == typeof(AtgOrderReq))
+            {
+                envVariableName = "ATG_ORDERS_CONTAINER_NAME";
+            }
 
             var containerName = Environment.GetEnvironmentVariable(envVariableName);
             var collectionUri = UriFactory.CreateDocumentCollectionUri("sourcing-engine", containerName);
@@ -71,7 +75,7 @@ namespace FergusonSourcingEngine.Controllers
             var order = document.CreateDocumentQuery<Document>(collectionUri, query, feedOption)
                 .AsEnumerable().FirstOrDefault();
 
-            if (order == null && typeof(T) == typeof(AtgOrderRes))
+            if (order == null && (typeof(T) == typeof(AtgOrderRes) || typeof(T) == typeof(AtgOrderReq)))
             {
                 throw new ArgumentException($"Order with ID {id} does not exist.", "id");
             }
