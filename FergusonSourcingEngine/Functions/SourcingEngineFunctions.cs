@@ -528,75 +528,49 @@ namespace FergusonSourcingEngine
         {
             try
             {
-                var currentHour = OrderController.GetCurrentEasternHour();
-                log.LogInformation($"Current Hour: {currentHour}");
-
-                // Only run within 6am - 10pm EST
-                if (currentHour < 6 || currentHour >= 22) return;
-
                 var manualOrdersCollectionUri = UriFactory.CreateDocumentCollectionUri("sourcing-engine", "manual-orders");
 
                 var query = new SqlQuerySpec
                 {
-                    QueryText = "SELECT * FROM c WHERE c.orderComplete = false"
+                    QueryText = "SELECT * FROM c WHERE c.orderComplete = false AND c.claimed = false"
                 };
 
-                var incompleteOrders = documentClient.CreateDocumentQuery<Document>(manualOrdersCollectionUri, query, option).AsEnumerable();
-                log.LogInformation($"Incomplete Order Count: {incompleteOrders.Count()}");
+                var incompleteOrderDocs = documentClient.CreateDocumentQuery<Document>(manualOrdersCollectionUri, query, option).AsEnumerable();
+                log.LogInformation($"Incomplete Order Count: {incompleteOrderDocs.Count()}");
 
-                if (incompleteOrders.Count() == 0) return;
+                if (incompleteOrderDocs.Count() == 0) return;
 
-                foreach (var order in incompleteOrders)
+                foreach (var orderDoc in incompleteOrderDocs)
                 {
                     try
                     {
-                        ManualOrder manualOrder = (dynamic)order;
+                        ManualOrder manualOrder = (dynamic)orderDoc;
                         log.LogInformation($"Order ID: {manualOrder.atgOrderId}");
-                        log.LogInformation(@"Manual Order: {Order}", manualOrder);
 
-                        var ordersCollectionUri = UriFactory.CreateDocumentCollectionUri("sourcing-engine", "orders");
+                        var atgOrderDoc = await OrderController.GetOrder<AtgOrderRes>(manualOrder.atgOrderId, documentClient);
 
-                        // Get the matching order from the orders container and run sourcing
-                        query = new SqlQuerySpec
-                        {
-                            QueryText = "SELECT * FROM c WHERE c.id = @id",
-                            Parameters = new SqlParameterCollection() { new SqlParameter("@id", manualOrder.atgOrderId) }
-                        };
+                        AtgOrderRes atgOrderRes = (dynamic)atgOrderDoc;
+                        log.LogInformation(@"ATG Order: {0}", atgOrderRes);
 
-                        var atgOrderReq = documentClient.CreateDocumentQuery<AtgOrderReq>(ordersCollectionUri, query, option)
-                            .AsEnumerable().FirstOrDefault();
+                        var sourcingController = InitializeSourcingController(log);
 
-                        var jsonRequest = JsonConvert.SerializeObject(atgOrderReq);
-
-                        var url = @"https://sourcing-engine.azurewebsites.net/api/order/source";
-
-                        var client = new RestClient(url);
-
-                        var request = new RestRequest(Method.POST)
-                            .AddParameter("code", "SOURCING_ENGINE_HOST_KEY")
-                            .AddParameter("application/json; charset=utf-8", jsonRequest, ParameterType.RequestBody);
-
-                        _ = client.ExecuteAsync(request);
+                        await sourcingController.StartSourcing(documentClient, atgOrderRes);
                     }
                     catch (Exception ex)
                     {
                         var title = "Error in RunSourcingOnStaleOrders loop";
-                        var text = $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
-                        var teamsMessage = new TeamsMessage(title, text, "yellow", errorLogsUrl);
+                        var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "yellow", errorLogsUrl);
                         teamsMessage.LogToTeams(teamsMessage);
-
-                        log.LogError(@"Error in SourceStaleOrders loop: {E}", ex);
+                        log.LogError(@"{0}: {1}", title, ex);
                     }
                 }
             }
             catch (Exception ex)
             {
                 var title = "Error in RunSourcingOnStaleOrders";
-                var text = $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
-                var teamsMessage = new TeamsMessage(title, text, "red", errorLogsUrl);
+                var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
-
-                log.LogError(@"Error in SourceStaleOrders: {E}", ex);
+                log.LogError(@"{0}: {1}", title, ex);
             }
         }
 
