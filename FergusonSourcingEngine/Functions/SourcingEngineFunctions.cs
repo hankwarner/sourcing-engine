@@ -174,7 +174,7 @@ namespace FergusonSourcingEngine
                 var teamsMessage = new TeamsMessage(title, text, "red", errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
 
-                log.LogError(@"Error in UpdateTrilogieStatus: {E}", e);
+                log.LogError(@"Error in UpdateTrilogieStatus: {0}", e);
                 return new ObjectResult(e.Message) { StatusCode = 500, Value = "Failure" };
             }
         }
@@ -218,14 +218,12 @@ namespace FergusonSourcingEngine
             }
             catch (Exception e)
             {
-#if RELEASE
                 var title = "Error in SourceOrderFromSite";
-                var text = $"Error message: {e.Message}. Stacktrace: {e.StackTrace}";
-                var teamsMessage = new TeamsMessage(title, text, "red", errorLogsUrl);
+#if RELEASE
+                var teamsMessage = new TeamsMessage(title, $"Error message: {e.Message}. Stacktrace: {e.StackTrace}", "red", errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
 #endif
-
-                log.LogError(@"Error in SourceOrderFromSite: {E}", e);
+                log.LogError(@"{0}: {1}", title, e);
                 return new BadRequestObjectResult(e.Message);
             }
         }
@@ -254,7 +252,6 @@ namespace FergusonSourcingEngine
 #endif
                 ConnectionStringSetting = "AzureCosmosDBConnectionString",
                 CreateLeaseCollectionIfNotExists = true), SwaggerIgnore]IReadOnlyList<Document> documents,
-            //[HttpTrigger(AuthorizationLevel.Function, "post", Route = "order/source"), RequestBodyType(typeof(AtgOrderReq), "product request")] HttpRequest req,
             [CosmosDB(ConnectionStringSetting = "AzureCosmosDBConnectionString"), SwaggerIgnore] DocumentClient documentClient,
             ILogger log)
         {
@@ -265,12 +262,9 @@ namespace FergusonSourcingEngine
             {
                 try
                 {
-                    //var requestBody = new StreamReader(req.Body).ReadToEnd();
-                    //var atgOrderReq = JsonConvert.DeserializeObject<AtgOrderReq>(requestBody);
-
                     var atgOrderReq = JsonConvert.DeserializeObject<AtgOrderReq>(document.ToString());
                     log.LogInformation($"Order ID: {atgOrderReq.atgOrderId}");
-                    log.LogInformation(@"Order: {Order}", atgOrderReq);
+                    log.LogInformation(@"ATG Order Req: {0}", atgOrderReq);
 
                     var atgOrderRes = new AtgOrderRes(atgOrderReq){ startTime = DateTime.Now };
 
@@ -289,7 +283,7 @@ namespace FergusonSourcingEngine
                     var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", errorLogsUrl);
                     teamsMessage.LogToTeams(teamsMessage);
 #endif
-                    log.LogError(ex, title);
+                    log.LogError(@"{0}: {1}", title, ex);
                 }
             }
         }
