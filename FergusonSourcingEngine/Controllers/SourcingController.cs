@@ -82,10 +82,17 @@ namespace FergusonSourcingEngine.Controllers
                 atgOrderRes.sourcingMessage.Replace("Order received.", "");
                 atgOrderRes.shipping.shipVia = shippingController.GetOrderShipVia(atgOrderRes.shipping.shipViaCode);
 
-                // Get the product data, sourcing guide, stocking statuses for each item
+                // Initilize data needed to source the order
                 var itemTask = itemController.InitializeItems(atgOrderRes);
-                var initLocationsTask = locationController.InitializeLocations(atgOrderRes);
                 var initInventoryTask = itemController.InitializeInventory(atgOrderRes);
+                
+                var initLocationsTask = Task.CompletedTask;
+                var requiresLocations = !string.IsNullOrEmpty(atgOrderRes.shipping.shipTo.zip);
+
+                if (requiresLocations)
+                {
+                    initLocationsTask = locationController.InitializeLocations(atgOrderRes);
+                }
 
                 await itemTask;
 
