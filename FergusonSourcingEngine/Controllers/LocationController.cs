@@ -47,9 +47,27 @@ namespace FergusonSourcingEngine.Controllers
                 locations.LocationDict = await GetLogonLocationData(sellWarehouse);
 
                 _ = ValidateSellWarehouse(atgOrderRes);
-
-                var distanceData = await GetDistanceData(shipToZip);
+#if RELEASE
+                var distanceData = await GetGoogleDistanceData(shipToZip);
+#endif
 #if DEBUG
+                var googleDistanceDataTask = GetGoogleDistanceData(shipToZip);
+                var transitDataTask = GetBusinessTransitDays(shipToZip);
+
+                await Task.WhenAll(googleDistanceDataTask, transitDataTask);
+
+                var googleDistanceData = googleDistanceDataTask.Result;
+                var transitData = transitDataTask.Result;
+
+                // Combine data from Google and UPS into a single dict
+                var distanceData =
+                    googleDistanceData.Join(transitData,
+                                            dist => dist.Key,
+                                            trans => trans.Key,
+                                            (dist, trans) =>
+                                                new DistanceData(dist.Key, dist.Value, trans.Value.BusinessTransitDays, trans.Value.SaturdayDelivery))
+                                        .ToDictionary(d => d.BranchNumber, d => d);
+
                 await ValidateDistanceData(distanceData);
 #endif
                 var addToDictTask = AddDistanceDataToLocationDict(distanceData);
@@ -227,12 +245,8 @@ namespace FergusonSourcingEngine.Controllers
         /// </summary>
         /// <param name="shippingZip">Customer's shipping zip code.</param>
         /// <returns>Dictionary where key is branch number and value is location data.</returns>
-#if RELEASE
-        public async Task<Dictionary<string, double>> GetDistanceData(string shippingZip)
-#endif
-#if DEBUG
-        public async Task<Dictionary<string, DistanceData>> GetDistanceData(string shippingZip)
-#endif
+        public async Task<Dictionary<string, double>> GetGoogleDistanceData(string shippingZip)
+
         {
             var retryPolicy = Policy.Handle<Exception>().Retry(10, (ex, count) =>
             {
@@ -254,12 +268,9 @@ namespace FergusonSourcingEngine.Controllers
                 var allBranchNumbers = locations.LocationDict.Keys;
                 var requestBody = new List<string>(allBranchNumbers);
                 var jsonRequest = JsonConvert.SerializeObject(requestBody);
-#if RELEASE
+
                 var baseUrl = @"https://service-sourcing.supply.com/api/v2/DistanceData/GetBranchDistancesByZipCode/";
-#endif
-#if DEBUG
-                var baseUrl = @"https://service-sourcing.supply.com/api/v2/DistanceData/GetBranchDistancesByZipCodeNew/";
-#endif
+
                 shippingZip = shippingZip.Substring(0, 5);
                 var client = new RestClient(baseUrl + shippingZip);
 
@@ -272,31 +283,71 @@ namespace FergusonSourcingEngine.Controllers
 
                 var response = await distanceDataTask;
                 var jsonResponse = response.Content;
-#if RELEASE
-                var distanceData = JsonConvert.DeserializeObject<Dictionary<string, double>>(jsonResponse);
-#endif
-#if DEBUG
-                var distanceData = new Dictionary<string, DistanceData>();
 
-                try
-                {
-                    distanceData = JsonConvert.DeserializeObject<Dictionary<string, DistanceData>>(jsonResponse);
-                }
-                // If this ex is thrown, it means the business days in transit do not exist yet and it timed out while calling UPS.
-                catch (JsonReaderException ex)
-                {
-                    _logger.LogWarning(ex, "Error parsing distance data response.");
-                    // Wait 10 seconds for DB to write all of the days in transit values before calling again.
-                    Thread.Sleep(10000);
-                    throw;
-                }
-#endif
+                var distanceData = JsonConvert.DeserializeObject<Dictionary<string, double>>(jsonResponse);
+
                 if (distanceData == null)
                     throw new Exception("Distance data returned null.");
 
                 return distanceData;
             });
         }
+
+
+        /// <summary>
+        ///     Gets UPS business days in transit for all branches within the logon based on the customer's zip code.
+        /// </summary>
+        /// <param name="shippingZip">Customer's shipping zip code.</param>
+        /// <returns>Dictionary where key is branch number and value is UPSTransitData.</returns>
+#if DEBUG
+        public async Task<Dictionary<string, UPSTransitData>> GetBusinessTransitDays(string shippingZip)
+
+        {
+            var retryPolicy = Policy.Handle<Exception>().Retry(10, (ex, count) =>
+            {
+                var title = "Error in GetBusinessTransitDays";
+                _logger.LogWarning($"{title}. Retrying...");
+
+                if (count == 10)
+                {
+                    _logger.LogError(ex, title);
+#if RELEASE
+                    var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
+                    teamsMessage.LogToTeams(teamsMessage);
+#endif
+                }
+            });
+
+            return await retryPolicy.Execute(async () =>
+            {
+                var allBranchNumbers = locations.LocationDict.Keys;
+                var requestBody = new List<string>(allBranchNumbers);
+                var jsonRequest = JsonConvert.SerializeObject(requestBody);
+
+                var baseUrl = @"https://service-sourcing.supply.com/api/v2/DistanceData/transit/";
+
+                shippingZip = shippingZip.Substring(0, 5);
+                var client = new RestClient(baseUrl + shippingZip);
+
+                var request = new RestRequest(Method.POST)
+                    .AddHeader("Accept", "application/json")
+                    .AddHeader("Content-Type", "application/json")
+                    .AddParameter("application/json; charset=utf-8", jsonRequest, ParameterType.RequestBody);
+
+                var transitDataTask = client.ExecuteAsync(request);
+
+                var response = await transitDataTask;
+                var jsonResponse = response.Content;
+
+                var transitData = JsonConvert.DeserializeObject<Dictionary<string, UPSTransitData>>(jsonResponse);
+
+                if (transitData == null)
+                    throw new Exception("Transit data returned null.");
+
+                return transitData;
+            });
+        }
+#endif
 
 
         /// <summary>
@@ -355,7 +406,7 @@ namespace FergusonSourcingEngine.Controllers
                         locationData.Distance = distanceData.DistanceFromZip;
                         locationData.BusinessDaysInTransit = distanceData.BusinessTransitDays;
 
-                        if(locationData.BusinessDaysInTransit != 0 && !string.IsNullOrEmpty(locationData.FedExESTCutoffTimes))
+                        if(locationData.BusinessDaysInTransit.HasValue && !string.IsNullOrEmpty(locationData.FedExESTCutoffTimes))
                         {
                             locationData.EstShipDate = await GetEstShipDate(locationData, DateTime.Now);
 
@@ -420,7 +471,7 @@ namespace FergusonSourcingEngine.Controllers
         {
             // Ship date does not count as a transit day
             var startDate = location.EstShipDate.AddDays(1);
-            var estDeliveryDate = location.EstShipDate.AddDays(location.BusinessDaysInTransit);
+            var estDeliveryDate = location.EstShipDate.AddDays(Convert.ToDouble(location.BusinessDaysInTransit));
 
             // Check if any of the days in transit are weekend or holidays. If so, add an extra day
             for (var date = startDate; date <= estDeliveryDate; date = date.AddDays(1))

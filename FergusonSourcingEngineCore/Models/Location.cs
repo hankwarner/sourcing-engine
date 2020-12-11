@@ -16,7 +16,7 @@ namespace FergusonSourcingCore.Models
 
         public double? Distance { get; set; }
 
-        public int BusinessDaysInTransit { get; set; }
+        public int? BusinessDaysInTransit { get; set; }
 
         public bool IsPreferred { get; set; } = false;
 
