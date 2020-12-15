@@ -339,7 +339,20 @@ namespace FergusonSourcingEngine.Controllers
                 var response = await transitDataTask;
                 var jsonResponse = response.Content;
 
-                var transitData = JsonConvert.DeserializeObject<Dictionary<string, UPSTransitData>>(jsonResponse);
+                var transitData = new Dictionary<string, UPSTransitData>();
+
+                try
+                {
+                    transitData = JsonConvert.DeserializeObject<Dictionary<string, UPSTransitData>>(jsonResponse);
+                }
+                // If this ex is thrown, it means the business days in transit do not exist yet and it timed out while calling UPS.
+                catch (JsonReaderException ex)
+                {
+                    _logger.LogWarning(ex, "Error parsing transit data response.");
+                    // Wait 10 seconds for DB to write all of the days in transit values before calling again.
+                    Thread.Sleep(10000);
+                    throw;
+                }
 
                 if (transitData == null)
                     throw new Exception("Transit data returned null.");
