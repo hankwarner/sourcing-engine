@@ -245,7 +245,7 @@ namespace FergusonSourcingEngine.Controllers
         /// </summary>
         /// <param name="shippingZip">Customer's shipping zip code.</param>
         /// <returns>Dictionary where key is branch number and value is location data.</returns>
-        public async Task<Dictionary<string, double>> GetGoogleDistanceData(string shippingZip)
+        public async Task<Dictionary<string, double?>> GetGoogleDistanceData(string shippingZip)
 
         {
             var retryPolicy = Policy.Handle<Exception>().Retry(10, (ex, count) =>
@@ -284,7 +284,7 @@ namespace FergusonSourcingEngine.Controllers
                 var response = await distanceDataTask;
                 var jsonResponse = response.Content;
 
-                var distanceData = JsonConvert.DeserializeObject<Dictionary<string, double>>(jsonResponse);
+                var distanceData = JsonConvert.DeserializeObject<Dictionary<string, double?>>(jsonResponse);
 
                 if (distanceData == null)
                     throw new Exception("Distance data returned null.");
@@ -396,7 +396,7 @@ namespace FergusonSourcingEngine.Controllers
         /// </summary>
         /// <param name="distanceDataDict">Dictionary where the key is the branch number and value is distance data, including distance in miles from destination and days in transit.</param>
 #if RELEASE
-        public async Task AddDistanceDataToLocationDict(Dictionary<string, double> distanceDataDict)
+        public async Task AddDistanceDataToLocationDict(Dictionary<string, double?> distanceDataDict)
 #endif
 #if DEBUG
         public async Task AddDistanceDataToLocationDict(Dictionary<string, DistanceData> distanceDataDict)
