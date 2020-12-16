@@ -627,6 +627,38 @@ namespace FergusonSourcingEngine
                 log.LogError(@"Error in MonitorIncomingOrders: {E}", ex);
             }
         }
+
+
+        /// <summary>
+        ///     For debugging purposes, log the change feed on the manual-orders container.
+        /// </summary>
+        [FunctionName("LogManualOrderChanges")]
+        public void LogManualOrderChanges(
+            [CosmosDBTrigger(
+                databaseName: "sourcing-engine",
+                collectionName: "manual-orders",
+                LeaseCollectionName = "sourcing-leases",
+                ConnectionStringSetting = "AzureCosmosDBConnectionString",
+                CreateLeaseCollectionIfNotExists = true), SwaggerIgnore]IReadOnlyList<Document> documents,
+            [CosmosDB(ConnectionStringSetting = "AzureCosmosDBConnectionString"), SwaggerIgnore] DocumentClient documentClient,
+            ILogger log)
+        {
+            log.LogInformation(@"Documents: {0}", documents);
+
+            foreach (var document in documents)
+            {
+                ManualOrder mOrder = (dynamic)document;
+                log.LogInformation(@"Order ID: {0} Manual Order: {1}", mOrder.atgOrderId, mOrder);
+
+                // Track changes to specific properties
+                log.LogInformation($"Order ID: {mOrder.atgOrderId}");
+                log.LogInformation($"Order ID: {mOrder.atgOrderId} Order complete: {mOrder.orderComplete}");
+                log.LogInformation($"Order ID: {mOrder.atgOrderId} Time completed: {mOrder.timeCompleted}");
+                log.LogInformation($"Order ID: {mOrder.atgOrderId} Claimed: {mOrder.claimed}");
+                log.LogInformation($"Order ID: {mOrder.atgOrderId} Time claimed: {mOrder.timeClaimed}");
+                log.LogInformation($"Order ID: {mOrder.atgOrderId} Notes: {mOrder.notes}");
+            }
+        }
 #endif
 
         /// <summary>
