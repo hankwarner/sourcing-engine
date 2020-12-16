@@ -52,18 +52,18 @@ namespace FergusonSourcingEngine.Controllers
             catch (NullReferenceException ex)
             {
                 var title = "Missing required field: {E}";
-                _logger.LogWarning(ex, title);
-#if RELEASE
-                var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
+                _logger.LogWarning(@"{0}: {1}", title, ex);
+#if !DEBUG
+                var teamsMessage = new TeamsMessage(title, $"Order Id: {atgOrderRes.atgOrderId}. Warning message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
 #endif
             }
             catch (Exception ex)
             {
                 var title = "Error in StartSourcing";
-                _logger.LogError(ex, title);
-#if RELEASE
-                var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
+                _logger.LogError(@"{0}: {1}", title, ex);
+#if !DEBUG
+                var teamsMessage = new TeamsMessage(title, $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
 #endif
             }
@@ -151,8 +151,8 @@ namespace FergusonSourcingEngine.Controllers
             catch(KeyNotFoundException ex)
             {
                 var title = "KeyNotFoundException in SourceOrder";
-                _logger.LogError(title);
-#if RELEASE
+                _logger.LogError(@"{0}: {1}", title, ex);
+#if !DEBUG
                 var teamsMessage = new TeamsMessage(title, $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
 #endif
@@ -160,8 +160,8 @@ namespace FergusonSourcingEngine.Controllers
             catch (Exception ex)
             {
                 var title = "Exception in SourceOrder";
-                _logger.LogError(ex, title);
-#if RELEASE
+                _logger.LogError(@"{0}: {1}", title, ex);
+#if !DEBUG
                 var teamsMessage = new TeamsMessage(title, $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
 #endif

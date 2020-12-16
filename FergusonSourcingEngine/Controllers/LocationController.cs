@@ -81,17 +81,17 @@ namespace FergusonSourcingEngine.Controllers
             }
             catch (NullReferenceException ex)
             {
-                _logger.LogWarning("Invalid shipping values. {Ex}", ex);
+                _logger.LogWarning("Invalid shipping values. {0}", ex);
                 throw;
             }
             catch (Exception ex)
             {
                 var title = "Error in InitializeLocations";
-#if RELEASE
+#if !DEBUG
                 var teamsMessage = new TeamsMessage(title, $"Order Id: {atgOrderRes.atgOrderId}. Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
 #endif
-                _logger.LogError(ex, title);
+                _logger.LogError(@"{0}: {1}", title, ex);
                 throw;
             }
         }
