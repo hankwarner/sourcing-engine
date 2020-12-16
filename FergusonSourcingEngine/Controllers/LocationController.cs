@@ -65,7 +65,7 @@ namespace FergusonSourcingEngine.Controllers
                                                 new DistanceData(dist.Key, dist.Value, trans.Value.BusinessTransitDays, trans.Value.SaturdayDelivery))
                                         .ToDictionary(d => d.BranchNumber, d => d);
 
-                await ValidateDistanceData(distanceData);
+                //await ValidateDistanceData(distanceData);
 
                 var addToDictTask = AddDistanceDataToLocationDict(distanceData);
                 var prefLocationTask = SetPreferredLocationFlag(shipToState, shipToZip);
@@ -121,12 +121,16 @@ namespace FergusonSourcingEngine.Controllers
         /// </summary>
         public async Task SortLocations()
         {
-            locations.LocationDict = locations.LocationDict.OrderByDescending(l => l.Value.IsPreferred)
+            locations.LocationDict = locations.LocationDict
+                .OrderByDescending(l => l.Value.IsPreferred)
                 .ThenByDescending(l => l.Value.DCLocation)
                 .ThenByDescending(l => l.Value.ShipHub)
                 .ThenByDescending(l => l.Value.WarehouseManagementSoftware)
+                .ThenByDescending(l => l.Value.EstDeliveryDate != new DateTime()) // puts null values at the bottom
                 .ThenBy(l => l.Value.EstDeliveryDate)
+                .ThenByDescending(l => l.Value.BusinessDaysInTransit != null && l.Value.BusinessDaysInTransit != 0) // puts null values at the bottom
                 .ThenBy(l => l.Value.BusinessDaysInTransit)
+                .ThenByDescending(l => l.Value.Distance != null) // puts null values at the bottom
                 .ThenBy(l => l.Value.Distance)
                 .ToDictionary(l => l.Key, l => l.Value);
         }
@@ -354,25 +358,25 @@ namespace FergusonSourcingEngine.Controllers
         ///     a single location, zero out all locations so that sorting will go by DistanceFromZip.
         /// </summary>
         /// <param name="distanceData">Response object from the distance data microservice. Key is branch number and value is location data.</param>
-        public async Task ValidateDistanceData(Dictionary<string, DistanceData> distanceData)
-        {
-            if (distanceData.Any(d => d.Value.DistanceFromZip == null || d.Value.DistanceFromZip == 0))
-            {
-                foreach (var dist in distanceData) { dist.Value.DistanceFromZip = 0; }
-            }
+        //public async Task ValidateDistanceData(Dictionary<string, DistanceData> distanceData)
+        //{
+        //    if (distanceData.Any(d => d.Value.DistanceFromZip == null || d.Value.DistanceFromZip == 0))
+        //    {
+        //        foreach (var dist in distanceData) { dist.Value.DistanceFromZip = 0; }
+        //    }
 
-            if (distanceData.Any(d => d.Value.BusinessTransitDays == 0))
-            {
-                foreach (var dist in distanceData) { dist.Value.BusinessTransitDays = 0; }
-            }
+        //    if (distanceData.Any(d => d.Value.BusinessTransitDays == 0))
+        //    {
+        //        foreach (var dist in distanceData) { dist.Value.BusinessTransitDays = 0; }
+        //    }
 
-            if (distanceData.Any(d => d.Value.DistanceFromZip == 0 && d.Value.BusinessTransitDays == 0))
-            {
-                var errMsg = "Sourcing cannot be performed because distance data and business days in transit are missing for all locations.";
-                _logger.LogWarning(errMsg);
-                throw new Exception(errMsg);
-            }
-        }
+        //    if (distanceData.Any(d => d.Value.DistanceFromZip == 0 && d.Value.BusinessTransitDays == 0))
+        //    {
+        //        var errMsg = "Sourcing cannot be performed because distance data and business days in transit are missing for all locations.";
+        //        _logger.LogWarning(errMsg);
+        //        throw new Exception(errMsg);
+        //    }
+        //}
 
 
         /// <summary>
@@ -380,13 +384,6 @@ namespace FergusonSourcingEngine.Controllers
         ///     exist in the location dict, it will not be added.
         /// </summary>
         /// <param name="distanceDataDict">Dictionary where the key is the branch number and value is distance data, including distance in miles from destination and days in transit.</param>
-<<<<<<< HEAD
-#if RELEASE
-        public async Task AddDistanceDataToLocationDict(Dictionary<string, double?> distanceDataDict)
-#endif
-#if DEBUG
-=======
->>>>>>> origin
         public async Task AddDistanceDataToLocationDict(Dictionary<string, DistanceData> distanceDataDict)
         {
             try
