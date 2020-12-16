@@ -76,6 +76,7 @@ namespace FergusonSourcingEngine.Controllers
                 await Task.WhenAll(addToDictTask, prefLocationTask);
 
                 await SortLocations();
+                _logger.LogInformation(@"Sorted locations: {0}", locations.LocationDict.Keys);
 
                 _logger.LogInformation("InitializeLocations finish");
             }
