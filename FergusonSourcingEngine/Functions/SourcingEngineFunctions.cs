@@ -170,11 +170,12 @@ namespace FergusonSourcingEngine
             catch (Exception e)
             {
                 var title = "Error in UpdateTrilogieStatus";
+#if !DEBUG
                 var text = $"Error message: {e.Message}. Stacktrace: {e.StackTrace}";
                 var teamsMessage = new TeamsMessage(title, text, "red", errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
-
-                log.LogError(@"Error in UpdateTrilogieStatus: {0}", e);
+#endif
+                log.LogError(@"{0}: {1}", title, e);
                 return new ObjectResult(e.Message) { StatusCode = 500, Value = "Failure" };
             }
         }
@@ -219,7 +220,7 @@ namespace FergusonSourcingEngine
             catch (Exception e)
             {
                 var title = "Error in SourceOrderFromSite";
-#if RELEASE
+#if !DEBUG
                 var teamsMessage = new TeamsMessage(title, $"Error message: {e.Message}. Stacktrace: {e.StackTrace}", "red", errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
 #endif
@@ -279,7 +280,7 @@ namespace FergusonSourcingEngine
                 catch (Exception ex)
                 {
                     var title = "Error in SourceATGOrder";
-#if RELEASE
+#if !DEBUG
                     var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", errorLogsUrl);
                     teamsMessage.LogToTeams(teamsMessage);
 #endif
