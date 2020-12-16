@@ -47,7 +47,10 @@ namespace FergusonSourcingEngine.Controllers
                 locations.LocationDict = await GetLogonLocationData(sellWarehouse);
 
                 _ = ValidateSellWarehouse(atgOrderRes);
-
+#if RELEASE
+                var distanceData = await GetGoogleDistanceData(shipToZip);
+#endif
+#if DEBUG
                 var googleDistanceDataTask = GetGoogleDistanceData(shipToZip);
                 var transitDataTask = GetBusinessTransitDays(shipToZip);
 
@@ -66,7 +69,7 @@ namespace FergusonSourcingEngine.Controllers
                                         .ToDictionary(d => d.BranchNumber, d => d);
 
                 //await ValidateDistanceData(distanceData);
-
+#endif
                 var addToDictTask = AddDistanceDataToLocationDict(distanceData);
                 var prefLocationTask = SetPreferredLocationFlag(shipToState, shipToZip);
 
@@ -121,6 +124,16 @@ namespace FergusonSourcingEngine.Controllers
         /// </summary>
         public async Task SortLocations()
         {
+#if RELEASE
+            locations.LocationDict = locations.LocationDict.OrderByDescending(l => l.Value.IsPreferred)
+                .ThenByDescending(l => l.Value.DCLocation)
+                .ThenByDescending(l => l.Value.ShipHub)
+                .ThenByDescending(l => l.Value.WarehouseManagementSoftware)
+                .ThenByDescending(l => l.Value.Distance != null) // puts null values at the bottom
+                .ThenBy(l => l.Value.Distance)
+                .ToDictionary(l => l.Key, l => l.Value);
+#endif
+#if DEBUG
             locations.LocationDict = locations.LocationDict
                 .OrderByDescending(l => l.Value.IsPreferred)
                 .ThenByDescending(l => l.Value.DCLocation)
@@ -133,6 +146,7 @@ namespace FergusonSourcingEngine.Controllers
                 .ThenByDescending(l => l.Value.Distance != null) // puts null values at the bottom
                 .ThenBy(l => l.Value.Distance)
                 .ToDictionary(l => l.Key, l => l.Value);
+#endif
         }
 
 
@@ -384,7 +398,12 @@ namespace FergusonSourcingEngine.Controllers
         ///     exist in the location dict, it will not be added.
         /// </summary>
         /// <param name="distanceDataDict">Dictionary where the key is the branch number and value is distance data, including distance in miles from destination and days in transit.</param>
+#if RELEASE
+        public async Task AddDistanceDataToLocationDict(Dictionary<string, double?> distanceDataDict)
+#endif
+#if DEBUG
         public async Task AddDistanceDataToLocationDict(Dictionary<string, DistanceData> distanceDataDict)
+#endif
         {
             try
             {
@@ -396,6 +415,10 @@ namespace FergusonSourcingEngine.Controllers
 
                     if (hasExistingDictEntry)
                     {
+#if RELEASE
+                        locations.LocationDict[branchNumber].Distance = distanceData;
+#endif
+#if DEBUG
                         locationData.Distance = distanceData.DistanceFromZip;
                         locationData.BusinessDaysInTransit = distanceData.BusinessTransitDays;
 
@@ -405,6 +428,7 @@ namespace FergusonSourcingEngine.Controllers
 
                             locationData.EstDeliveryDate = await GetEstDeliveryDate(locationData);
                         }
+#endif
                     }
                 }
             }
