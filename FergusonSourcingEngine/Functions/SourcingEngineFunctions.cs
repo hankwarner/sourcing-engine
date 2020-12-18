@@ -253,6 +253,7 @@ namespace FergusonSourcingEngine
 #endif
                 ConnectionStringSetting = "AzureCosmosDBConnectionString",
                 CreateLeaseCollectionIfNotExists = true), SwaggerIgnore]IReadOnlyList<Document> documents,
+            //[HttpTrigger(AuthorizationLevel.Function, "post", Route = "order/source"), RequestBodyType(typeof(AtgOrderReq), "product request")] HttpRequest req,
             [CosmosDB(ConnectionStringSetting = "AzureCosmosDBConnectionString"), SwaggerIgnore] DocumentClient documentClient,
             ILogger log)
         {
@@ -263,6 +264,9 @@ namespace FergusonSourcingEngine
             {
                 try
                 {
+                    //var requestBody = new StreamReader(req.Body).ReadToEnd();
+                    //var atgOrderReq = JsonConvert.DeserializeObject<AtgOrderReq>(requestBody);
+
                     var atgOrderReq = JsonConvert.DeserializeObject<AtgOrderReq>(document.ToString());
                     log.LogInformation($"Order ID: {atgOrderReq.atgOrderId}");
                     log.LogInformation(@"ATG Order Req: {0}", atgOrderReq);
