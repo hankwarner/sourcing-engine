@@ -47,10 +47,9 @@ namespace FergusonSourcingEngine.Controllers
                 locations.LocationDict = await GetLogonLocationData(sellWarehouse);
 
                 _ = ValidateSellWarehouse(atgOrderRes);
-#if RELEASE
+#if !DEBUG
                 var distanceData = await GetGoogleDistanceData(shipToZip);
-#endif
-#if DEBUG
+#else
                 var googleDistanceDataTask = GetGoogleDistanceData(shipToZip);
                 var transitDataTask = GetBusinessTransitDays(shipToZip);
 
@@ -67,8 +66,6 @@ namespace FergusonSourcingEngine.Controllers
                                             (dist, trans) =>
                                                 new DistanceData(dist.Key, dist.Value, trans.Value.BusinessTransitDays, trans.Value.SaturdayDelivery))
                                         .ToDictionary(d => d.BranchNumber, d => d);
-
-                //await ValidateDistanceData(distanceData);
 #endif
                 var addToDictTask = AddDistanceDataToLocationDict(distanceData);
                 var prefLocationTask = SetPreferredLocationFlag(shipToState, shipToZip);
@@ -111,8 +108,8 @@ namespace FergusonSourcingEngine.Controllers
             catch(Exception ex)
             {
                 var title = "Error in ValidateSellWarehouse";
-                _logger.LogError(title);
-#if RELEASE
+                _logger.LogError(@"{0}: {1}", title, ex);
+#if !DEBUG
                 var teamsMessage = new TeamsMessage(title, $"Order Id: {atgOrderRes.atgOrderId}. Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
 #endif
@@ -125,7 +122,7 @@ namespace FergusonSourcingEngine.Controllers
         /// </summary>
         public async Task SortLocations()
         {
-#if RELEASE
+#if !DEBUG
             locations.LocationDict = locations.LocationDict.OrderByDescending(l => l.Value.IsPreferred)
                 .ThenByDescending(l => l.Value.DCLocation)
                 .ThenByDescending(l => l.Value.ShipHub)
@@ -133,8 +130,7 @@ namespace FergusonSourcingEngine.Controllers
                 .ThenByDescending(l => l.Value.Distance != null) // puts null values at the bottom
                 .ThenBy(l => l.Value.Distance)
                 .ToDictionary(l => l.Key, l => l.Value);
-#endif
-#if DEBUG
+#else
             locations.LocationDict = locations.LocationDict
                 .OrderByDescending(l => l.Value.IsPreferred)
                 .ThenByDescending(l => l.Value.DCLocation)
@@ -214,7 +210,7 @@ namespace FergusonSourcingEngine.Controllers
                 if (count == 5)
                 {
                     _logger.LogError(ex, title);
-#if RELEASE
+#if !DEBUG
                     var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                     teamsMessage.LogToTeams(teamsMessage);
 #endif
@@ -254,15 +250,15 @@ namespace FergusonSourcingEngine.Controllers
         public async Task<Dictionary<string, double?>> GetGoogleDistanceData(string shippingZip)
 
         {
-            var retryPolicy = Policy.Handle<Exception>().Retry(10, (ex, count) =>
+            var retryPolicy = Policy.Handle<Exception>().Retry(3, (ex, count) =>
             {
-                var title = "Error in GetDistanceData";
-                _logger.LogWarning($"{title}. Retrying...");
+                var title = "Error in GetGoogleDistanceData";
+                _logger.LogWarning(@"{0}. Retrying... {1}", title, ex);
 
                 if (count == 10)
                 {
-                    _logger.LogError(ex, title);
-#if RELEASE
+                    _logger.LogError(@"{0}: {1}", title, ex);
+#if !DEBUG
                     var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                     teamsMessage.LogToTeams(teamsMessage);
 #endif
@@ -275,25 +271,25 @@ namespace FergusonSourcingEngine.Controllers
                 var requestBody = new List<string>(allBranchNumbers);
                 var jsonRequest = JsonConvert.SerializeObject(requestBody);
 
-                var baseUrl = @"https://service-sourcing.supply.com/api/v2/DistanceData/GetBranchDistancesByZipCode/";
-
                 shippingZip = shippingZip.Substring(0, 5);
-                var client = new RestClient(baseUrl + shippingZip);
-
+                var url = @$"https://distance-microservices.azurewebsites.net/api/distance/{shippingZip}";
+                
+                var client = new RestClient(url);
                 var request = new RestRequest(Method.POST)
-                    .AddHeader("Accept", "application/json")
-                    .AddHeader("Content-Type", "application/json")
+                    .AddQueryParameter("code", Environment.GetEnvironmentVariable("DIST_MICROSERVICE_HOST_KEY"))
                     .AddParameter("application/json; charset=utf-8", jsonRequest, ParameterType.RequestBody);
 
-                var distanceDataTask = client.ExecuteAsync(request);
-
-                var response = await distanceDataTask;
+                var response = await client.ExecuteAsync(request);
                 var jsonResponse = response.Content;
 
-                var distanceData = JsonConvert.DeserializeObject<Dictionary<string, double?>>(jsonResponse);
+                if (jsonResponse == null || (int)response.StatusCode != 200)
+                {
+                    var msg = $"Distance data returned null. Status Code: {response.StatusCode}. Message {response.ErrorMessage}.";
+                    _logger.LogError(msg);
+                    throw new Exception(msg);
+                }
 
-                if (distanceData == null)
-                    throw new Exception("Distance data returned null.");
+                var distanceData = JsonConvert.DeserializeObject<Dictionary<string, double?>>(jsonResponse);
 
                 return distanceData;
             });
@@ -311,12 +307,12 @@ namespace FergusonSourcingEngine.Controllers
             var retryPolicy = Policy.Handle<Exception>().Retry(10, (ex, count) =>
             {
                 var title = "Error in GetBusinessTransitDays";
-                _logger.LogWarning($"{title}. Retrying...");
+                _logger.LogWarning(@"{0}. Retrying... {1}", title, ex);
 
                 if (count == 10)
                 {
-                    _logger.LogError(ex, title);
-#if RELEASE
+                    _logger.LogError(@"{0}: {1}", title, ex);
+#if !DEBUG
                     var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                     teamsMessage.LogToTeams(teamsMessage);
 #endif
@@ -329,69 +325,29 @@ namespace FergusonSourcingEngine.Controllers
                 var requestBody = new List<string>(allBranchNumbers);
                 var jsonRequest = JsonConvert.SerializeObject(requestBody);
 
-                var baseUrl = @"https://service-sourcing.supply.com/api/v2/DistanceData/transit/";
-
                 shippingZip = shippingZip.Substring(0, 5);
-                var client = new RestClient(baseUrl + shippingZip);
-
+                var url = @$"https://distance-microservices.azurewebsites.net/api/transit/{shippingZip}";
+                
+                var client = new RestClient(url);
                 var request = new RestRequest(Method.POST)
-                    .AddHeader("Accept", "application/json")
-                    .AddHeader("Content-Type", "application/json")
+                    .AddQueryParameter("code", Environment.GetEnvironmentVariable("DIST_MICROSERVICE_HOST_KEY"))
                     .AddParameter("application/json; charset=utf-8", jsonRequest, ParameterType.RequestBody);
 
-                var transitDataTask = client.ExecuteAsync(request);
-
-                var response = await transitDataTask;
+                var response = await client.ExecuteAsync(request);
                 var jsonResponse = response.Content;
 
-                var transitData = new Dictionary<string, UPSTransitData>();
-
-                try
+                if (jsonResponse == null || (int)response.StatusCode != 200)
                 {
-                    transitData = JsonConvert.DeserializeObject<Dictionary<string, UPSTransitData>>(jsonResponse);
-                }
-                // If this ex is thrown, it means the business days in transit do not exist yet and it timed out while calling UPS.
-                catch (JsonReaderException ex)
-                {
-                    _logger.LogWarning(ex, "Error parsing transit data response.");
-                    // Wait 10 seconds for DB to write all of the days in transit values before calling again.
-                    Thread.Sleep(10000);
-                    throw;
+                    var msg = $"Transit data returned null. Status Code: {response.StatusCode}. Message {response.ErrorMessage}.";
+                    _logger.LogError(msg);
+                    throw new Exception(msg);
                 }
 
-                if (transitData == null)
-                    throw new Exception("Transit data returned null.");
+                var transitData = JsonConvert.DeserializeObject<Dictionary<string, UPSTransitData>>(jsonResponse);
 
                 return transitData;
             });
         }
-
-
-        /// <summary>
-        ///     Checks that each location has a value for DistanceFromZip and BusinessTransitDays. If any single location is missing a 
-        ///     data piece, zero out that data piece for all locations so it will not affect sorting. For example, if BusinessTransitDays is 0 for
-        ///     a single location, zero out all locations so that sorting will go by DistanceFromZip.
-        /// </summary>
-        /// <param name="distanceData">Response object from the distance data microservice. Key is branch number and value is location data.</param>
-        //public async Task ValidateDistanceData(Dictionary<string, DistanceData> distanceData)
-        //{
-        //    if (distanceData.Any(d => d.Value.DistanceFromZip == null || d.Value.DistanceFromZip == 0))
-        //    {
-        //        foreach (var dist in distanceData) { dist.Value.DistanceFromZip = 0; }
-        //    }
-
-        //    if (distanceData.Any(d => d.Value.BusinessTransitDays == 0))
-        //    {
-        //        foreach (var dist in distanceData) { dist.Value.BusinessTransitDays = 0; }
-        //    }
-
-        //    if (distanceData.Any(d => d.Value.DistanceFromZip == 0 && d.Value.BusinessTransitDays == 0))
-        //    {
-        //        var errMsg = "Sourcing cannot be performed because distance data and business days in transit are missing for all locations.";
-        //        _logger.LogWarning(errMsg);
-        //        throw new Exception(errMsg);
-        //    }
-        //}
 
 
         /// <summary>
