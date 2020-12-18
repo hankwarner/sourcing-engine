@@ -82,19 +82,7 @@ namespace FergusonSourcingEngine.Controllers
                 atgOrderRes.sourcingMessage.Replace("Order received.", "");
                 atgOrderRes.shipping.shipVia = shippingController.GetOrderShipVia(atgOrderRes.shipping.shipViaCode);
 
-                // Initilize data needed to source the order
-                var itemTask = itemController.InitializeItems(atgOrderRes);
-                var initInventoryTask = itemController.InitializeInventory(atgOrderRes);
-                
-                var initLocationsTask = Task.CompletedTask;
-                var requiresLocations = !string.IsNullOrEmpty(atgOrderRes.shipping.shipTo.zip);
-
-                if (requiresLocations)
-                {
-                    initLocationsTask = locationController.InitializeLocations(atgOrderRes);
-                }
-
-                await itemTask;
+                await InitilizeData(atgOrderRes);
 
                 // Build All Lines and separate by Sourcing Guide
                 var allLines = GroupBySourcingGuide(atgOrderRes.items);
@@ -104,16 +92,7 @@ namespace FergusonSourcingEngine.Controllers
 
                 if (hasFEILines && !isPickupOrder)
                 {
-                    await initLocationsTask;
-
                     SetLineLocationsAndRequirements(allLines, atgOrderRes);
-                }
-
-                if (hasFEILines || isPickupOrder)
-                {
-                    await initInventoryTask;
-
-                    LogLocationAndItemInventory();
                 }
 
                 if (isPickupOrder)
@@ -160,6 +139,44 @@ namespace FergusonSourcingEngine.Controllers
             catch (Exception ex)
             {
                 var title = "Exception in SourceOrder";
+                _logger.LogError(@"{0}: {1}", title, ex);
+#if !DEBUG
+                var teamsMessage = new TeamsMessage(title, $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
+                teamsMessage.LogToTeams(teamsMessage);
+#endif
+                throw;
+            }
+        }
+
+
+        /// <summary>
+        ///     Runs asynchronously to initilize item, inventory and locations data needed before sourcing can begin.
+        /// </summary>
+        /// <param name="atgOrderRes"></param>
+        public async Task InitilizeData(AtgOrderRes atgOrderRes)
+        {
+            try
+            {
+                var initializeDataTasks = new List<Task>()
+                {
+                    itemController.InitializeItems(atgOrderRes),
+                    itemController.InitializeInventory(atgOrderRes)
+                };
+
+                var requiresLocations = !string.IsNullOrEmpty(atgOrderRes.shipping.shipTo.zip);
+
+                if (requiresLocations)
+                {
+                    initializeDataTasks.Add(locationController.InitializeLocations(atgOrderRes));
+                }
+
+                await Task.WhenAll(initializeDataTasks);
+
+                LogLocationAndItemInventory();
+            }
+            catch(Exception ex)
+            {
+                var title = "Error Initilizing Data";
                 _logger.LogError(@"{0}: {1}", title, ex);
 #if !DEBUG
                 var teamsMessage = new TeamsMessage(title, $"Order Id: {atgOrderRes.atgOrderId}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
