@@ -152,7 +152,7 @@ namespace FergusonSourcingEngine.Controllers
         /// <summary>
         ///     Runs asynchronously to initilize item, inventory and locations data needed before sourcing can begin.
         /// </summary>
-        /// <param name="atgOrderRes"></param>
+        /// <param name="atgOrderRes">The original order from ATG, stored in the atg-orders container.</param>
         public async Task InitilizeData(AtgOrderRes atgOrderRes)
         {
             try
