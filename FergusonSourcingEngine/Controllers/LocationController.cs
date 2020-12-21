@@ -272,13 +272,22 @@ namespace FergusonSourcingEngine.Controllers
                 var jsonRequest = JsonConvert.SerializeObject(requestBody);
 
                 shippingZip = shippingZip.Substring(0, 5);
+#if DEBUG
                 var url = @$"https://distance-microservices.azurewebsites.net/api/distance/{shippingZip}";
                 
                 var client = new RestClient(url);
                 var request = new RestRequest(Method.POST)
                     .AddQueryParameter("code", Environment.GetEnvironmentVariable("DIST_MICROSERVICE_HOST_KEY"))
                     .AddParameter("application/json; charset=utf-8", jsonRequest, ParameterType.RequestBody);
+#else
+                var baseUrl = @"https://service-sourcing.supply.com/api/v2/DistanceData/GetBranchDistancesByZipCode/";
 
+                var client = new RestClient(baseUrl + shippingZip);
+                var request = new RestRequest(Method.POST)
+                    .AddHeader("Accept", "application/json")
+                    .AddHeader("Content-Type", "application/json")
+                    .AddParameter("application/json; charset=utf-8", jsonRequest, ParameterType.RequestBody);
+#endif
                 var response = await client.ExecuteAsync(request);
                 var jsonResponse = response.Content;
 
