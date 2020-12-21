@@ -170,13 +170,11 @@ namespace FergusonSourcingEngine.Controllers
 
             return retryPolicy.Execute(() =>
             {
-                var baseUrl = @"https://service-sourcing.supply.com/api/v2/Location/GetBranchLogonID/";
+                var url = @$"https://location-microservices.azurewebsites.net/api/location/logon/{sellingWarehouse}";
 
-                var client = new RestClient(baseUrl + sellingWarehouse);
-
+                var client = new RestClient(url);
                 var request = new RestRequest(Method.GET)
-                    .AddHeader("Accept", "application/json")
-                    .AddHeader("Content-Type", "application/json");
+                    .AddQueryParameter("code", Environment.GetEnvironmentVariable("LOCATION_MICROSERVICE_HOST_KEY"));
 
                 var jsonResponse = client.Execute(request).Content;
 
@@ -219,17 +217,13 @@ namespace FergusonSourcingEngine.Controllers
 
             return await retryPolicy.Execute(async () =>
             {
-                var baseUrl = @"https://service-sourcing.supply.com/api/v2/Location/GetLogonLocationData/";
+                var url = @$"https://location-microservices.azurewebsites.net/api/location/{sellingWarehouse}";
 
-                var client = new RestClient(baseUrl + sellingWarehouse);
-
+                var client = new RestClient(url);
                 var request = new RestRequest(Method.GET)
-                    .AddHeader("Accept", "application/json")
-                    .AddHeader("Content-Type", "application/json");
+                    .AddQueryParameter("code", Environment.GetEnvironmentVariable("LOCATION_MICROSERVICE_HOST_KEY"));
 
-                var locationDataTask = client.ExecuteAsync(request);
-
-                var response = await locationDataTask;
+                var response = await client.ExecuteAsync(request);
                 var jsonResponse = response.Content;
 
                 if (string.IsNullOrEmpty(jsonResponse)) 
