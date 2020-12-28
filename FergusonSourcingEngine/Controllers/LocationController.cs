@@ -50,22 +50,7 @@ namespace FergusonSourcingEngine.Controllers
 #if !DEBUG
                 var distanceData = await GetGoogleDistanceData(shipToZip);
 #else
-                var googleDistanceDataTask = GetGoogleDistanceData(shipToZip);
-                var transitDataTask = GetBusinessTransitDays(shipToZip);
-
-                await Task.WhenAll(googleDistanceDataTask, transitDataTask);
-
-                var googleDistanceData = googleDistanceDataTask.Result;
-                var transitData = transitDataTask.Result;
-
-                // Combine data from Google and UPS into a single dict
-                var distanceData =
-                    googleDistanceData.Join(transitData,
-                                            dist => dist.Key,
-                                            trans => trans.Key,
-                                            (dist, trans) =>
-                                                new DistanceData(dist.Key, dist.Value, trans.Value.BusinessTransitDays, trans.Value.SaturdayDelivery))
-                                        .ToDictionary(d => d.BranchNumber, d => d);
+                var distanceData = await GetDistanceAndTransitData(shipToZip);
 #endif
                 var addToDictTask = AddDistanceDataToLocationDict(distanceData);
                 var prefLocationTask = SetPreferredLocationFlag(shipToState, shipToZip);
@@ -140,7 +125,7 @@ namespace FergusonSourcingEngine.Controllers
                 .ThenBy(l => l.Value.EstDeliveryDate)
                 .ThenByDescending(l => l.Value.BusinessDaysInTransit != null && l.Value.BusinessDaysInTransit != 0) // puts null values at the bottom
                 .ThenBy(l => l.Value.BusinessDaysInTransit)
-                .ThenByDescending(l => l.Value.Distance != null) // puts null values at the bottom
+                .ThenByDescending(l => l.Value.Distance != null && l.Value.Distance != 0) // puts null values at the bottom
                 .ThenBy(l => l.Value.Distance)
                 .ToDictionary(l => l.Key, l => l.Value);
 #endif
@@ -266,14 +251,7 @@ namespace FergusonSourcingEngine.Controllers
                 var jsonRequest = JsonConvert.SerializeObject(requestBody);
 
                 shippingZip = shippingZip.Substring(0, 5);
-#if DEBUG
-                var url = @$"https://distance-microservices.azurewebsites.net/api/distance/{shippingZip}";
-                
-                var client = new RestClient(url);
-                var request = new RestRequest(Method.POST)
-                    .AddQueryParameter("code", Environment.GetEnvironmentVariable("DIST_MICROSERVICE_HOST_KEY"))
-                    .AddParameter("application/json; charset=utf-8", jsonRequest, ParameterType.RequestBody);
-#else
+
                 var baseUrl = @"https://service-sourcing.supply.com/api/v2/DistanceData/GetBranchDistancesByZipCode/";
 
                 var client = new RestClient(baseUrl + shippingZip);
@@ -281,7 +259,7 @@ namespace FergusonSourcingEngine.Controllers
                     .AddHeader("Accept", "application/json")
                     .AddHeader("Content-Type", "application/json")
                     .AddParameter("application/json; charset=utf-8", jsonRequest, ParameterType.RequestBody);
-#endif
+     
                 var response = await client.ExecuteAsync(request);
                 var jsonResponse = response.Content;
 
@@ -303,13 +281,13 @@ namespace FergusonSourcingEngine.Controllers
         ///     Gets UPS business days in transit for all branches within the logon based on the customer's zip code.
         /// </summary>
         /// <param name="shippingZip">Customer's shipping zip code.</param>
-        /// <returns>Dictionary where key is branch number and value is UPSTransitData.</returns>
-        public async Task<Dictionary<string, UPSTransitData>> GetBusinessTransitDays(string shippingZip)
+        /// <returns>Dictionary where key is branch number and value is DistanceAndTransitData.</returns>
+        public async Task<Dictionary<string, DistanceAndTransitData>> GetDistanceAndTransitData(string shippingZip)
 
         {
             var retryPolicy = Policy.Handle<Exception>().Retry(10, (ex, count) =>
             {
-                var title = "Error in GetBusinessTransitDays";
+                var title = "Error in GetDistanceAndTransitData";
                 _logger.LogWarning(@"{0}. Retrying... {1}", title, ex);
 
                 if (count == 10)
@@ -338,6 +316,8 @@ namespace FergusonSourcingEngine.Controllers
 
                 var response = await client.ExecuteAsync(request);
                 var jsonResponse = response.Content;
+                _logger.LogInformation(@"GetDistanceAndTransitData response status code: {0}", response.StatusCode);
+                _logger.LogInformation(@"GetDistanceAndTransitData response content: {0}", jsonResponse);
 
                 if (jsonResponse == null || (int)response.StatusCode != 200)
                 {
@@ -346,7 +326,7 @@ namespace FergusonSourcingEngine.Controllers
                     throw new Exception(msg);
                 }
 
-                var transitData = JsonConvert.DeserializeObject<Dictionary<string, UPSTransitData>>(jsonResponse);
+                var transitData = JsonConvert.DeserializeObject<Dictionary<string, DistanceAndTransitData>>(jsonResponse);
 
                 return transitData;
             });
@@ -362,7 +342,7 @@ namespace FergusonSourcingEngine.Controllers
         public async Task AddDistanceDataToLocationDict(Dictionary<string, double?> distanceDataDict)
 #endif
 #if DEBUG
-        public async Task AddDistanceDataToLocationDict(Dictionary<string, DistanceData> distanceDataDict)
+        public async Task AddDistanceDataToLocationDict(Dictionary<string, DistanceAndTransitData> distanceDataDict)
 #endif
         {
             try
@@ -376,7 +356,7 @@ namespace FergusonSourcingEngine.Controllers
                     if (hasExistingDictEntry)
                     {
 #if RELEASE
-                        locations.LocationDict[branchNumber].Distance = distanceData;
+                        locations.LocationDict[branchNumber].Distance = (decimal?)distanceData;
 #endif
 #if DEBUG
                         locationData.Distance = distanceData.DistanceFromZip;
