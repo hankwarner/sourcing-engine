@@ -14,7 +14,7 @@ namespace FergusonSourcingCore.Models
     {
         public string BranchNumber { get; set; }
 
-        public double? Distance { get; set; }
+        public decimal? Distance { get; set; }
 
         public int? BusinessDaysInTransit { get; set; }
 
