@@ -113,6 +113,7 @@ namespace FergusonSourcingEngine.Controllers
 
                 var response = await client.ExecuteAsync(request);
                 var jsonResponse = response.Content;
+                _logger.LogInformation(@"Item microservices status code: {0}. Response: {1}", response.StatusCode, jsonResponse);
 
                 if (!response.StatusCode.Equals(200) || string.IsNullOrEmpty(jsonResponse))
                 {
