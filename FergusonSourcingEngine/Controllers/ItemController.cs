@@ -106,7 +106,7 @@ namespace FergusonSourcingEngine.Controllers
             {
                 var url = @"https://item-microservices.azurewebsites.net/api/item";
                 var client = new RestClient(url);
-                var request = new RestRequest(Method.POST)
+                var request = new RestRequest(Method.GET)
                     .AddQueryParameter("code", Environment.GetEnvironmentVariable("ITEM_MICROSERVICES_KEY"));
 
                 mpns.ForEach(mpn => request.AddQueryParameter("mpn", mpn.ToString()));
@@ -115,7 +115,7 @@ namespace FergusonSourcingEngine.Controllers
                 var jsonResponse = response.Content;
                 _logger.LogInformation(@"Item microservices status code: {0}. Response: {1}", response.StatusCode, jsonResponse);
 
-                if (!response.StatusCode.Equals(200) || string.IsNullOrEmpty(jsonResponse))
+                if (response?.StatusCode != HttpStatusCode.OK || string.IsNullOrEmpty(jsonResponse))
                 {
                     throw new Exception("Item Data returned null.");
                 }
