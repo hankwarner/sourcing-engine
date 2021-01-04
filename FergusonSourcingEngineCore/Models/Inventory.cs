@@ -18,7 +18,7 @@ namespace FergusonSourcingCore.Models
 
         public Dictionary<string, int> MultiLineAvailable = new Dictionary<string, int>();
 
-        public Dictionary<string, bool?> StockStatus = new Dictionary<string, bool?>();
+        public Dictionary<string, bool> StockStatus = new Dictionary<string, bool>();
     }
 
 
