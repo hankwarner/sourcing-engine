@@ -1049,7 +1049,7 @@ namespace FergusonSourcingEngine.Controllers
 
                 foreach (var branchNum in branchNumbers)
                 {
-                    itemController.inventory.InventoryDict[mpn].StockStatus.TryGetValue(branchNum, out bool? stockingStatus);
+                    itemController.inventory.InventoryDict[mpn].StockStatus.TryGetValue(branchNum, out bool stockingStatus);
 
                     if (stockingStatus == true)
                     {
