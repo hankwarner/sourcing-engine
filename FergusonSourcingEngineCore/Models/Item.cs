@@ -32,28 +32,6 @@ namespace FergusonSourcingCore.Models
 
         public string SourcingGuideline { get; set; }
 
-        public bool? StockingStatus533 { get; set; }
-
-        public bool? StockingStatus423 { get; set; }
-
-        public bool? StockingStatus761 { get; set; }
-
-        public bool? StockingStatus2911 { get; set; }
-
-        public bool? StockingStatus2920 { get; set; }
-
-        public bool? StockingStatus474 { get; set; }
-
-        public bool? StockingStatus986 { get; set; }
-
-        public bool? StockingStatus321 { get; set; }
-
-        public bool? StockingStatus625 { get; set; }
-
-        public bool? StockingStatus688 { get; set; }
-
-        public bool? StockingStatus796 { get; set; }
-
         public string PreferredShippingMethod { get; set; } // value from the items table
 
         // Parses the number used in the preferred shipping method, i.e. "Ground4LTL" will return 4
@@ -85,7 +63,8 @@ namespace FergusonSourcingCore.Models
 
     public class ItemResponse
     {
-        // Key = mpn
-        public List<Dictionary<int, ItemData>> itemResponse = new List<Dictionary<int, ItemData>>();
+        public Dictionary<string, ItemData> ItemDataDict { get; set; } = new Dictionary<string, ItemData>();
+
+        public Dictionary<string, Dictionary<string, bool>> StockingStatusDict { get; set; } = new Dictionary<string, Dictionary<string, bool>>();
     }
 }
