@@ -13,7 +13,6 @@ using System.Linq;
 using Microsoft.Azure.Documents;
 using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;
-using System.Net;
 using AzureFunctions.Extensions.Swashbuckle.Attribute;
 using FergusonSourcingCore.Models;
 using RestSharp;
