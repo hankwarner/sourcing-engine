@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 using System.Linq;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Net;
 
 namespace FergusonSourcingEngine.Controllers
 {
@@ -21,16 +22,15 @@ namespace FergusonSourcingEngine.Controllers
             this.itemController = itemController;
         }
 
-        public double EstimateShippingCost(double weight, ShippingAddress shipTo, ShippingAddress shipFrom, AtgOrderRes atgOrderRes)
+        public async Task<double> EstimateShippingCost(double weight, ShippingAddress shipTo, ShippingAddress shipFrom, AtgOrderRes atgOrderRes)
         {
-            var retryCount = 0;
-
-            var retryPolicy = Policy.Handle<Exception>().Retry(5, (ex, count) =>
+            _logger.LogInformation("EstimateShippingCost start");
+            var retryPolicy = Policy.Handle<Exception>().Retry(3, (ex, count) =>
             {
                 var title = "Error in EstimateShippingCost";
                 _logger.LogWarning($"{title}. Retrying...");
 
-                if (count == 5)
+                if (count == 3)
                 {
                     var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "yellow", SourcingEngineFunctions.errorLogsUrl);
                     teamsMessage.LogToTeams(teamsMessage);
@@ -38,91 +38,14 @@ namespace FergusonSourcingEngine.Controllers
                 }
             });
 
-            return retryPolicy.Execute(() =>
+            return await retryPolicy.Execute(async () =>
             {
-#if RELEASE
-                var rate = 15.00;
-
-                var requestBody = new ShipQuoteRequest
-                {
-                    package = new Package()
-                    {
-                        length = 12,
-                        width = 12,
-                        height = 24,
-                        weight = weight,
-                        address1 = shipTo.addressLine1,
-                        address2 = shipTo.addressLine2,
-                        city = shipTo.city,
-                        state = shipTo.state,
-                        zip = shipTo.zip,
-                        originaddress1 = shipFrom.addressLine1,
-                        originaddress2 = shipFrom.addressLine2,
-                        origincity = shipFrom.city,
-                        originstate = shipFrom.state,
-                        originzip = shipFrom.zip,
-                    }
-                };
-
-                var jsonRequest = JsonConvert.SerializeObject(requestBody);
-
-                // Default to standing shipping rate. Only change if it is shipping freight
-                var url = atgOrderRes.notes?.ToLower() == "freight" ?
-                    "https://erebus.nbsupply.com:443/ShipSource/ShipQuotes/Freight" :
-                    "https://erebus.nbsupply.com:443/ShipSource/ShipQuotes/Ground";
-                    
-
-                var client = new RestClient(url);
-                client.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
-
-                var request = new RestRequest(Method.POST)
-                    .AddHeader("Content-Type", "application/json")
-                    .AddHeader("Authorization", Environment.GetEnvironmentVariable("DOM_INVENTORY_KEY"))
-                    .AddParameter("application/json; charset=utf-8", jsonRequest, ParameterType.RequestBody);
-
-                var jsonResponse = client.Execute(request).Content;
-
-                if(jsonResponse == "")
-                {
-                    if (retryCount == 5)
-                    {
-                        return rate;
-                    }
-                    else
-                    {
-                        retryCount++;
-                        throw new Exception("Est Shipping Cost returned null");
-                    }
-                }
-
-                var parsedResponse = JsonConvert.DeserializeObject<ShipQuoteResponse>(jsonResponse);
-
-                var shipVia = atgOrderRes.shipping.shipViaCode.ToUpper();
-                var rateKey = "GROUND";
-
-                if (shipVia == "NEXT_DAY")
-                {
-                    rateKey  = "STANDARD_OVERNIGHT";
-                }
-                else if (shipVia == "SECOND_DAY")
-                {
-                    rateKey = "2_DAY";
-                }
-
-                rate = parsedResponse.rates.Where(r => r.Key.Contains(rateKey)).Select(r => r.Value).FirstOrDefault();
-
-                _logger.LogInformation($"Branch {shipFrom.branchNumber} Estimated Shipping Cost: {rate}");
-#endif
-#if DEBUG
                 var requestBody = new ShipQuoteRequest
                 {
                     RateType = "Ground", // Default to Ground unless shipping next day or second day
                     OriginAddress = shipFrom,
                     DestinationAddress = shipTo,
-                    Package = new Package()
-                    {
-                        Weight = weight
-                    }
+                    Package = new Package(){ Weight = weight }
                 };
 
                 if (atgOrderRes.shipping.shipViaCode == "SECOND_DAY")
@@ -136,20 +59,19 @@ namespace FergusonSourcingEngine.Controllers
 
                 var jsonRequest = JsonConvert.SerializeObject(requestBody);
 
-                var url = "https://ups-microservices.azurewebsites.net/api/rating";
-                var query = "?code=" + Environment.GetEnvironmentVariable("QUOTE_SHIPMENT_KEY");
-
-                var client = new RestClient(url + query);
+                var baseUrl = "https://ups-microservices.azurewebsites.net/api/rating";
+                var client = new RestClient(baseUrl);
 
                 var request = new RestRequest(Method.POST)
                     .AddHeader("Content-Type", "application/json")
+                    .AddQueryParameter("code", Environment.GetEnvironmentVariable("QUOTE_SHIPMENT_KEY"))
                     .AddParameter("application/json; charset=utf-8", jsonRequest, ParameterType.RequestBody);
 
-                var response = client.Execute(request);
+                var response = await client.ExecuteAsync(request);
+                _logger.LogInformation(@"Quote shipment response status code: {0}. Content: {1}", response.StatusCode, response.Content);
 
-                if (response.StatusCode.Equals(400) || response.StatusCode.Equals(400))
+                if (response?.StatusCode != HttpStatusCode.OK)
                 {
-                    _logger.LogError(@"Response status code: {StatusCode}. Response: {Response}", response.StatusCode, response);
                     throw new ArgumentException("Est Shipping Cost returned bad request object.");
                 }
 
@@ -164,12 +86,13 @@ namespace FergusonSourcingEngine.Controllers
                     teamsMessage.LogToTeams(teamsMessage);
                     _logger.LogWarning(message);
                 }
-#endif
+
+                _logger.LogInformation("EstimateShippingCost finish");
                 return rate;
             });
         }
 
-#if DEBUG
+
         public double GetCumulativeItemWeight(IGrouping<string, SingleLine> groupedLine, Dictionary<string, ItemData> itemDict)
         {
             var totalItemWeight = 0.0;
@@ -194,7 +117,7 @@ namespace FergusonSourcingEngine.Controllers
 
             return totalItemWeight;
         }
-#endif
+
 
         /// <summary>
         ///     Determines how the item will ship based on the item preferred ship method and quantity.

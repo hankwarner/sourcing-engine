@@ -109,7 +109,7 @@ namespace FergusonSourcingEngine.Controllers
 
                     if (!string.IsNullOrEmpty(atgOrderRes.shipping?.price))
                     {
-                        var estimatedShippingCost = GetEstimatedShippingCostOfOrder(combinedLines, atgOrderRes);
+                        var estimatedShippingCost = await GetEstimatedShippingCostOfOrder(combinedLines, atgOrderRes);
 
                         atgOrderRes.exceedsShippingCost = DoesShippingCostExceedThreshold(estimatedShippingCost, atgOrderRes);
                     }
@@ -601,6 +601,7 @@ namespace FergusonSourcingEngine.Controllers
                     $"Order ID: {atgOrderRes.id}. Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", 
                     "yellow", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
+                throw;
             }
         }
 
@@ -623,7 +624,7 @@ namespace FergusonSourcingEngine.Controllers
         /// <param name="linesToBeSourced">Group of lines that are currently unsourced.</param>
         /// <param name="guide">Sourcing guideline for the item group.</param>
         /// <returns>A list of sourced lines.</returns>
-        public List<SingleLine> SourceLinesComplete(LinesToBeSourced linesToBeSourced, string guide, AtgOrderRes atgOrderRes)
+        public async Task<List<SingleLine>> SourceLinesComplete(LinesToBeSourced linesToBeSourced, string guide, AtgOrderRes atgOrderRes)
         {
             try
             {
@@ -646,7 +647,7 @@ namespace FergusonSourcingEngine.Controllers
 
                     if (linesToBeSourced.CurrentLines.Count() == 0) return linesToBeSourced.SourcedLines;
 
-                    return SourceLinesComplete(linesToBeSourced, guide, atgOrderRes);
+                    return await SourceLinesComplete(linesToBeSourced, guide, atgOrderRes);
                 }
 
                 // Loop through commonLocations and see if there is enough inventory to source each line
@@ -707,7 +708,7 @@ namespace FergusonSourcingEngine.Controllers
                     if(currLocationId != preferredLocation)
                     {
                         // Then check if the proposed shipping cost exceeds the shipping cost charged to the customer by more than 10%, then move to Cost Effective logic 
-                        var estimatedShippingCost = GetEstimatedShippingCostOfOrder(currLines, atgOrderRes);
+                        var estimatedShippingCost = await GetEstimatedShippingCostOfOrder(currLines, atgOrderRes);
 
                         atgOrderRes.exceedsShippingCost = DoesShippingCostExceedThreshold(estimatedShippingCost, atgOrderRes);
                     }
@@ -730,7 +731,7 @@ namespace FergusonSourcingEngine.Controllers
                     linesToBeSourced.CurrentLines = linesToBeSourced.UnsourcedLines;
                     linesToBeSourced.UnsourcedLines = new List<SingleLine>();
 
-                    return SourceLinesComplete(linesToBeSourced, guide, atgOrderRes);
+                    return await SourceLinesComplete(linesToBeSourced, guide, atgOrderRes);
                 }
 
                 return linesToBeSourced.SourcedLines;
@@ -926,11 +927,12 @@ namespace FergusonSourcingEngine.Controllers
         /// </summary>
         /// <param name="lines">Line group with the same sourcing guideline.</param>
         /// <returns>The total estimated shipping cost to ship the order through UPS.</returns>
-        public double GetEstimatedShippingCostOfOrder(List<SingleLine> lines, AtgOrderRes atgOrderRes)
+        public async Task<double> GetEstimatedShippingCostOfOrder(List<SingleLine> lines, AtgOrderRes atgOrderRes)
         {
             _logger.LogInformation("GetEstimatedShippingCostOfOrder start");
 
-            var totalEstimatedShippingCost = 0.00;
+            var totalEstShipCost = 0.00;
+            var shippingTasks = new List<Task<double>>();
 
             try
             {
@@ -944,6 +946,7 @@ namespace FergusonSourcingEngine.Controllers
 
                 var linesGroupedByShipFrom = lines.Where(x => !string.IsNullOrEmpty(x.ShipFrom)).GroupBy(l => l.ShipFrom);
 
+                // Create a separate request for each Ship From location
                 foreach (var groupedLine in linesGroupedByShipFrom)
                 {
                     var branchNum = groupedLine.Key;
@@ -959,11 +962,17 @@ namespace FergusonSourcingEngine.Controllers
                         cumulativeWeight += weight;
                     }
 
-                    var estimatedLineShippingCost = shippingController.EstimateShippingCost(cumulativeWeight, shipToAddress, shipFromAddress, atgOrderRes);
-
-                    totalEstimatedShippingCost += estimatedLineShippingCost;
+                    // Add to list of UPS tasks that will be run async
+                    shippingTasks.Add(shippingController.EstimateShippingCost(cumulativeWeight, shipToAddress, shipFromAddress, atgOrderRes));
                 }
-                _logger.LogInformation("GetEstimatedShippingCostOfOrder finish");
+
+                // Send requests to UPS for shipping cost estimate
+                var estShipCosts = await Task.WhenAll(shippingTasks);
+
+                // Sum values of all shipping costs
+                totalEstShipCost = estShipCosts.Sum();
+
+                _logger.LogInformation($"GetEstimatedShippingCostOfOrder finish. Total est ship cost {totalEstShipCost}");
             }
             catch(Exception ex)
             {
@@ -975,7 +984,7 @@ namespace FergusonSourcingEngine.Controllers
                 _logger.LogError(title);
             }
 
-            return totalEstimatedShippingCost;
+            return totalEstShipCost;
         }
 
 
@@ -1101,10 +1110,11 @@ namespace FergusonSourcingEngine.Controllers
         public bool DoesShippingCostExceedThreshold(double estimatedShippingCost, AtgOrderRes atgOrderRes)
         {
             var shippingCostOnOrder = Convert.ToDouble(atgOrderRes.shipping.price);
-            var twoHundredPercentOfShippingCost = shippingCostOnOrder * 2;
-            _logger.LogInformation($"twoHundredPercentOfShippingCost {twoHundredPercentOfShippingCost}");
+            // Compensating for high UPS estimated ship costs
+            var fourHundredPercentOfShippingCost = shippingCostOnOrder * 4;
+            _logger.LogInformation($"fourHundredPercentOfShippingCost {fourHundredPercentOfShippingCost}");
 
-            var exceedsShippingCostThreshold = estimatedShippingCost > twoHundredPercentOfShippingCost;
+            var exceedsShippingCostThreshold = estimatedShippingCost > fourHundredPercentOfShippingCost;
 
             return exceedsShippingCostThreshold;
         }
