@@ -47,19 +47,17 @@ namespace FergusonSourcingEngine.Controllers
                 locations.LocationDict = await GetLogonLocationData(sellWarehouse);
 
                 _ = ValidateSellWarehouse(atgOrderRes);
-//#if !DEBUG
-//                var distanceData = await GetGoogleDistanceData(shipToZip);
-//#else
-                var distanceData = await GetDistanceAndTransitData(shipToZip);
-//#endif
-                var addToDictTask = AddDistanceDataToLocationDict(distanceData);
-                var prefLocationTask = SetPreferredLocationFlag(shipToState, shipToZip);
 
-                await Task.WhenAll(addToDictTask, prefLocationTask);
+                var distanceData = await GetDistanceAndTransitData(shipToZip);
+
+                await Task.WhenAll(
+                    AddDistanceDataToLocationDict(distanceData), 
+                    SetPreferredLocationFlag(shipToState, shipToZip)
+                );
 
                 await SortLocations();
-                _logger.LogInformation(@"Sorted locations: {0}", locations.LocationDict.Keys);
 
+                _logger.LogInformation(@"Sorted locations: {0}", locations.LocationDict.Keys);
                 _logger.LogInformation("InitializeLocations finish");
             }
             catch (NullReferenceException ex)
@@ -107,15 +105,6 @@ namespace FergusonSourcingEngine.Controllers
         /// </summary>
         public async Task SortLocations()
         {
-#if !DEBUG
-            locations.LocationDict = locations.LocationDict.OrderByDescending(l => l.Value.IsPreferred)
-                .ThenByDescending(l => l.Value.DCLocation)
-                .ThenByDescending(l => l.Value.ShipHub)
-                .ThenByDescending(l => l.Value.WarehouseManagementSoftware)
-                .ThenByDescending(l => l.Value.Distance != null) // puts null values at the bottom
-                .ThenBy(l => l.Value.Distance)
-                .ToDictionary(l => l.Key, l => l.Value);
-#else
             locations.LocationDict = locations.LocationDict
                 .OrderByDescending(l => l.Value.IsPreferred)
                 .ThenByDescending(l => l.Value.DCLocation)
@@ -128,7 +117,6 @@ namespace FergusonSourcingEngine.Controllers
                 .ThenByDescending(l => l.Value.Distance != null && l.Value.Distance != 0) // puts null values at the bottom
                 .ThenBy(l => l.Value.Distance)
                 .ToDictionary(l => l.Key, l => l.Value);
-#endif
         }
 
 
@@ -145,8 +133,8 @@ namespace FergusonSourcingEngine.Controllers
 
                 if (count == 5)
                 {
-                    _logger.LogError(ex, title);
-#if RELEASE
+                    _logger.LogError(@"{0}: {1}", title, ex);
+#if !DEBUG
                     var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                     teamsMessage.LogToTeams(teamsMessage);
 #endif
@@ -222,62 +210,6 @@ namespace FergusonSourcingEngine.Controllers
 
 
         /// <summary>
-        ///     Gets distance data for all branches within the logon, including distance in miles and days in transit, based on the customer's zip code.
-        /// </summary>
-        /// <param name="shippingZip">Customer's shipping zip code.</param>
-        /// <returns>Dictionary where key is branch number and value is location data.</returns>
-//        public async Task<Dictionary<string, double?>> GetGoogleDistanceData(string shippingZip)
-
-//        {
-//            var retryPolicy = Policy.Handle<Exception>().Retry(3, (ex, count) =>
-//            {
-//                var title = "Error in GetGoogleDistanceData";
-//                _logger.LogWarning(@"{0}. Retrying... {1}", title, ex);
-
-//                if (count == 10)
-//                {
-//                    _logger.LogError(@"{0}: {1}", title, ex);
-//#if !DEBUG
-//                    var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
-//                    teamsMessage.LogToTeams(teamsMessage);
-//#endif
-//                }
-//            });
-
-//            return await retryPolicy.Execute(async () =>
-//            {
-//                var allBranchNumbers = locations.LocationDict.Keys;
-//                var requestBody = new List<string>(allBranchNumbers);
-//                var jsonRequest = JsonConvert.SerializeObject(requestBody);
-
-//                shippingZip = shippingZip.Substring(0, 5);
-
-//                var baseUrl = @"https://service-sourcing.supply.com/api/v2/DistanceData/GetBranchDistancesByZipCode/";
-
-//                var client = new RestClient(baseUrl + shippingZip);
-//                var request = new RestRequest(Method.POST)
-//                    .AddHeader("Accept", "application/json")
-//                    .AddHeader("Content-Type", "application/json")
-//                    .AddParameter("application/json; charset=utf-8", jsonRequest, ParameterType.RequestBody);
-     
-//                var response = await client.ExecuteAsync(request);
-//                var jsonResponse = response.Content;
-
-//                if (jsonResponse == null || (int)response.StatusCode != 200)
-//                {
-//                    var msg = $"Distance data returned null. Status Code: {response.StatusCode}. Message {response.ErrorMessage}.";
-//                    _logger.LogError(msg);
-//                    throw new Exception(msg);
-//                }
-
-//                var distanceData = JsonConvert.DeserializeObject<Dictionary<string, double?>>(jsonResponse);
-
-//                return distanceData;
-//            });
-//        }
-
-
-        /// <summary>
         ///     Gets UPS business days in transit for all branches within the logon based on the customer's zip code.
         /// </summary>
         /// <param name="shippingZip">Customer's shipping zip code.</param>
@@ -338,12 +270,7 @@ namespace FergusonSourcingEngine.Controllers
         ///     exist in the location dict, it will not be added.
         /// </summary>
         /// <param name="distanceDataDict">Dictionary where the key is the branch number and value is distance data, including distance in miles from destination and days in transit.</param>
-//#if RELEASE
-//        public async Task AddDistanceDataToLocationDict(Dictionary<string, double?> distanceDataDict)
-//#endif
-//#if DEBUG
         public async Task AddDistanceDataToLocationDict(Dictionary<string, DistanceAndTransitData> distanceDataDict)
-//#endif
         {
             try
             {
@@ -355,10 +282,6 @@ namespace FergusonSourcingEngine.Controllers
 
                     if (hasExistingDictEntry)
                     {
-//#if RELEASE
-//                        locations.LocationDict[branchNumber].Distance = (decimal?)distanceData;
-//#endif
-//#if DEBUG
                         locationData.Distance = distanceData.DistanceFromZip;
                         locationData.BusinessDaysInTransit = distanceData.BusinessTransitDays;
 
@@ -368,7 +291,6 @@ namespace FergusonSourcingEngine.Controllers
 
                             locationData.EstDeliveryDate = await GetEstDeliveryDate(locationData);
                         }
-//#endif
                     }
                 }
             }
