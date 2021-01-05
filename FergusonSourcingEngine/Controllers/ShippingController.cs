@@ -24,6 +24,7 @@ namespace FergusonSourcingEngine.Controllers
 
         public async Task<double> EstimateShippingCost(double weight, ShippingAddress shipTo, ShippingAddress shipFrom, AtgOrderRes atgOrderRes)
         {
+            _logger.LogInformation("EstimateShippingCost start");
             var retryPolicy = Policy.Handle<Exception>().Retry(3, (ex, count) =>
             {
                 var title = "Error in EstimateShippingCost";
@@ -86,6 +87,7 @@ namespace FergusonSourcingEngine.Controllers
                     _logger.LogWarning(message);
                 }
 
+                _logger.LogInformation("EstimateShippingCost finish");
                 return rate;
             });
         }
