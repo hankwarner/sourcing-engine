@@ -39,6 +39,7 @@ namespace FergusonSourcingEngine.Controllers
 
             return await retryPolicy.Execute(async () =>
             {
+                _logger.LogInformation("EstimateShippingCost start");
                 var requestBody = new ShipQuoteRequest
                 {
                     RateType = "Ground", // Default to Ground unless shipping next day or second day
@@ -86,6 +87,7 @@ namespace FergusonSourcingEngine.Controllers
                     _logger.LogWarning(message);
                 }
 
+                _logger.LogInformation("EstimateShippingCost finish");
                 return rate;
             });
         }
