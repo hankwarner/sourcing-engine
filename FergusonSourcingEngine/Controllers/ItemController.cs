@@ -174,7 +174,7 @@ namespace FergusonSourcingEngine.Controllers
                     var mpn = item.masterProdId;
 
                     item.itemDescription = items.ItemDict[mpn].ItemDescription;
-                    item.alt1Code = items.ItemDict[mpn].ALT1Code;
+                    item.alt1Code = items.ItemDict[mpn].ALTCODE;
 
                     await SetItemShippingValues(item, mpn);
                 }
@@ -356,6 +356,7 @@ namespace FergusonSourcingEngine.Controllers
                 var title = "Error in ParseInventoryResponse";
                 var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
+                throw;
             }
 
             return domInventory;
