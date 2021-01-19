@@ -321,6 +321,8 @@ namespace FergusonSourcingEngine.Controllers
                     var mpn = inventoryLine.Key;
                     var locationInventoryDict = inventoryLine.Value;
 
+                    inventory.InventoryDict.TryAdd(mpn, new ItemInventory());
+
                     inventory.InventoryDict[mpn].Available = locationInventoryDict;
 
                     // Make a copy of available inventory that can be decremented for multi line item use
