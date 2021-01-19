@@ -22,20 +22,13 @@ namespace FergusonSourcingCore.Models
     }
 
 
-    public class DOMInventoryRequest
+    public class InventoryRequest
     {
-        public DOMInventoryRequest(List<string> masterProductNumbers)
+        public InventoryRequest(List<string> masterProductNumbers)
         {
             MasterProductNumbers = masterProductNumbers;
         }
 
-        [JsonProperty("masterProductNumbers")]
         public List<string> MasterProductNumbers { get; set; }
-    }
-
-
-    public class InventoryResponse
-    {
-        public List<Dictionary<string, string>> InventoryData = new List<Dictionary<string, string>>();
     }
 }
