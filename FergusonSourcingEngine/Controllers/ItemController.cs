@@ -246,13 +246,9 @@ namespace FergusonSourcingEngine.Controllers
             {
                 _logger.LogInformation("InitializeInventory start");
 
-                // Response will be an array of JS objects
                 var inventoryResponse = await GetInventoryData();
 
-                var domInventory = await ParseInventoryResponse(inventoryResponse);
-
-                // Add DOM inventory to inventoryDict
-                await AddAvailableInventoryToDict(domInventory.InventoryData);
+                await AddAvailableInventoryToDict(inventoryResponse);
 
                 _logger.LogInformation("InitializeInventory finish");
             }
@@ -263,139 +259,85 @@ namespace FergusonSourcingEngine.Controllers
                 var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
 #endif
-                _logger.LogError(ex, title);
+                _logger.LogError(@"{0}: {1}", title, ex);
                 throw;
             }
         }
 
 
-        public async Task<JArray> GetInventoryData()
+        public async Task<Dictionary<string, Dictionary<string, int>>> GetInventoryData()
         {
-            var retryPolicy = Policy.Handle<Exception>().Retry(5, (ex, count) =>
+            var retryPolicy = Policy.Handle<Exception>().Retry(3, (ex, count) =>
             {
                 var title = "Error in GetInventoryData";
-                _logger.LogWarning(ex, $"{title} . Retrying...");
+                _logger.LogWarning(@"{0}: {1} . Retrying...", title, ex);
 
-                if (count == 5)
+                if (count == 3)
                 {
                     var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                     teamsMessage.LogToTeams(teamsMessage);
-                    _logger.LogError(ex, title);
+                    _logger.LogError(@"{0}: {1}", title, ex);
                 }
             });
 
             return await retryPolicy.Execute(async () =>
             {
-                var requestBody = new DOMInventoryRequest(mpns);
+                var requestBody = new InventoryRequest(mpns);
                 var jsonRequest = JsonConvert.SerializeObject(requestBody);
 
-                var url = @"https://erebus.nbsupply.com:443/WebServices/Inventory/RequestInventoryFromDomB2CStorefront";
-
-                var client = new RestClient(url)
-                {
-                    RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true
-                };
-
+                var url = @"https://inventory-microservices.azurewebsites.net/api/inventory";
+                var client = new RestClient(url);
                 var request = new RestRequest(Method.POST)
-                    .AddHeader("Content-Type", "text/plain")
+                    .AddQueryParameter("code", Environment.GetEnvironmentVariable("INVENTORY_MICROSERVICES_KEY"))
                     .AddParameter("application/json; charset=utf-8", jsonRequest, ParameterType.RequestBody);
 
-                var inventoryDataTask = client.ExecuteAsync(request);
-
-                var response = await inventoryDataTask;
+                var response = await client.ExecuteAsync(request);
                 _logger.LogInformation($"Raw response Content: {response?.Content}");
-                _logger.LogInformation($"Raw response ResponseStatus: {response?.ResponseStatus}");
                 _logger.LogInformation($"Raw response StatusCode: {response?.StatusCode}");
-                _logger.LogInformation($"Raw response ErrorException: {response?.ErrorException}");
-                _logger.LogInformation($"Raw ErrorMessage: {response?.ErrorMessage}");
+                
                 var jsonResponse = response.Content;
 
-                if (jsonResponse.Substring(0, 1) == "<" || response?.StatusCode != HttpStatusCode.OK)
+                if (response?.StatusCode != HttpStatusCode.OK)
                 {
-                    throw new Exception($"Erebus returned an invalid response: {jsonResponse}");
+                    _logger.LogInformation($"Raw response ErrorException: {response?.ErrorException}");
+                    _logger.LogInformation($"Raw ErrorMessage: {response?.ErrorMessage}");
+                    throw new Exception($"Inventory microservice returned an invalid response: {jsonResponse}");
                 }
 
-                // Response should be an array of JS objects with MPN on the first line
-                JArray inventoryResponse;
-                try
-                {
-                    inventoryResponse = JArray.Parse(jsonResponse);
-                }
-                catch(JsonReaderException ex)
-                {
-                    _logger.LogWarning("Inventory API did not return a json array.", ex);
-                    throw;
-                }
+                // Response should be a dictionary with mpn as key, and values as branch number/quantity key-value pairs
+                var inventoryResponse = JsonConvert.DeserializeObject<Dictionary<string, Dictionary<string, int>>>(jsonResponse);
 
                 return inventoryResponse;
             });
         }
 
 
-        public async Task<InventoryResponse> ParseInventoryResponse(JArray inventoryResponse)
+        public async Task AddAvailableInventoryToDict(Dictionary<string, Dictionary<string, int>> inventoryResponse)
         {
-            var domInventory = new InventoryResponse();
-
             try
             {
-                // Parse response into a list of dictionaries
-                foreach (var inventoryContent in inventoryResponse.Children<JObject>())
+                foreach(var inventoryLine in inventoryResponse)
                 {
-                    var branchNumAndQuantityDict = new Dictionary<string, string>();
+                    var mpn = inventoryLine.Key;
+                    var locationInventoryDict = inventoryLine.Value;
 
-                    foreach (var inventoryLine in inventoryContent.Properties())
-                    {
-                        branchNumAndQuantityDict.TryAdd(inventoryLine.Name, inventoryLine.Value.ToString());
-                    }
+                    inventory.InventoryDict.TryAdd(mpn, new ItemInventory());
 
-                    domInventory.InventoryData.Add(branchNumAndQuantityDict);
+                    inventory.InventoryDict[mpn].Available = locationInventoryDict;
+
+                    // Make a copy of available inventory that can be decremented for multi line item use
+                    inventory.InventoryDict[mpn].MultiLineAvailable = locationInventoryDict;
                 }
-            }
-            catch (Exception ex)
-            {
-                var title = "Error in ParseInventoryResponse";
-                var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
-                teamsMessage.LogToTeams(teamsMessage);
-                throw;
-            }
-
-            return domInventory;
-        }
-
-
-        public async Task AddAvailableInventoryToDict(List<Dictionary<string, string>> inventoryList)
-        {
-            try
-            {
-                inventoryList.ForEach(locationDict =>
-                {
-                    var mpn = locationDict.FirstOrDefault(x => x.Key == "MPID").Value;
-
-                    foreach (var line in locationDict)
-                    {
-                        var branchNumber = line.Key;
-
-                        // Skip lines where the key is not a branch number
-                        if (branchNumber == "MPID" || branchNumber == "RetrievedFromDOM") continue;
-
-                        var inventoryAtLocation = int.Parse(line.Value);
-
-                        inventory.InventoryDict.TryAdd(mpn, new ItemInventory());
-
-                        inventory.InventoryDict[mpn].Available.TryAdd(branchNumber, inventoryAtLocation);
-
-                        // Make a copy of available inventory that can be decremented for multi line item use
-                        inventory.InventoryDict[mpn].MultiLineAvailable.TryAdd(branchNumber, inventoryAtLocation);
-                    }
-                });
             }
             catch(Exception ex)
             {
-                var title = "Error in AddAvailableInventoryToDict";
-                var text = $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}";
-                var color = "red";
-                var teamsMessage = new TeamsMessage(title, text, color, SourcingEngineFunctions.errorLogsUrl);
+                var title = $"Error in AddAvailableInventoryToDict.";
+#if !DEBUG
+                var teamsMessage = new TeamsMessage(title, $"Error: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
                 teamsMessage.LogToTeams(teamsMessage);
+#endif
+                _logger.LogError(@"{0}: {1}", title, ex);
+                throw;
             }
         }
 
