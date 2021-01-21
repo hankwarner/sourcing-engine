@@ -285,7 +285,7 @@ namespace FergusonSourcingEngine.Controllers
                 var requestBody = new InventoryRequest(mpns);
                 var jsonRequest = JsonConvert.SerializeObject(requestBody);
 
-                var url = @"https://inventory-microservices.azurewebsites.net/api/inventory";
+                var url = @"https://inventory-microservice.azurewebsites.net/api/inventory";
                 var client = new RestClient(url);
                 var request = new RestRequest(Method.POST)
                     .AddQueryParameter("code", Environment.GetEnvironmentVariable("INVENTORY_MICROSERVICES_KEY"))
