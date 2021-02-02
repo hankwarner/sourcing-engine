@@ -1111,10 +1111,10 @@ namespace FergusonSourcingEngine.Controllers
         {
             var shippingCostOnOrder = Convert.ToDouble(atgOrderRes.shipping.price);
             // Compensating for high UPS estimated ship costs
-            var fourHundredPercentOfShippingCost = shippingCostOnOrder * 4;
-            _logger.LogInformation($"fourHundredPercentOfShippingCost {fourHundredPercentOfShippingCost}");
+            var twoHundredPercentOfShippingCost = shippingCostOnOrder * 2;
+            _logger.LogInformation($"twoHundredPercentOfShippingCost {twoHundredPercentOfShippingCost}");
 
-            var exceedsShippingCostThreshold = estimatedShippingCost > fourHundredPercentOfShippingCost;
+            var exceedsShippingCostThreshold = estimatedShippingCost > twoHundredPercentOfShippingCost;
 
             return exceedsShippingCostThreshold;
         }
