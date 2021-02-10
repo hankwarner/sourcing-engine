@@ -342,7 +342,7 @@ namespace FergusonSourcingEngine
 
                     var manualOrderDoc = await OrderController.GetOrder<ManualOrder>(atgOrderRes.atgOrderId, documentClient);
                     log.LogInformation(@"manualOrderDoc: {ManualOrderDoc}", manualOrderDoc);
-                    var orderController = new OrderController(new LocationController());
+                    var orderController = new OrderController(new LocationController(log));
 
                     if (manualOrderDoc == null)
                     {
@@ -373,72 +373,6 @@ namespace FergusonSourcingEngine
 
 
 #if RELEASE
-        // Waiting until FEI is using this endpoint to add this function:
-        /// <summary>
-        ///     Queries the Orders container for open orders with backordered items and re-runs them through sourcing to determine if inventory has become available.
-        /// </summary>
-        //[SwaggerIgnore]
-        //[FunctionName("ReSourceBackorderedItems")]
-        //public static async Task ReSourceBackorderedItems(
-        //    [TimerTrigger("0 */15 * * * *")] TimerInfo timer, // every 15 mins
-        //    [CosmosDB(ConnectionStringSetting = "AzureCosmosDBConnectionString"), SwaggerIgnore] DocumentClient documentClient,
-        //    ILogger log)
-        //{
-        //    try
-        //    {
-        //        var currentHour = OrderController.GetCurrentEasternHour();
-        //        log.LogInformation($"Current Hour: {currentHour}");
-
-        //        // Only run within 6am - 7pm EST
-        //        if (currentHour < 6 || currentHour >= 19) return;
-
-        //        // Get open orders with backordered item(s)
-        //        var query = new SqlQuerySpec
-        //        {
-        //            QueryText = @"
-        //                SELECT VALUE c FROM c 
-        //                JOIN s IN c.sourcing 
-        //                JOIN i IN s.items 
-        //                WHERE c.orderComplete = false 
-        //                    AND c.claimed = false 
-        //                    AND (i.sourcingMessage = 'Backordered.' OR CONTAINS(i.sourcingMessage, 'does not have the required quantity'))"
-        //        };
-
-        //        var manualOrdersCollectionUri = UriFactory.CreateDocumentCollectionUri("sourcing-engine", "manual-orders");
-        //        var manualOrderDocs = documentClient.CreateDocumentQuery<Document>(manualOrdersCollectionUri, query, option).AsEnumerable();
-
-        //        // Get the matching ATG Order from query results and run sourcing 
-        //        foreach (var manualOrderDoc in manualOrderDocs)
-        //        {
-        //            try
-        //            {
-        //                ManualOrder manualOrder = (dynamic)manualOrderDoc;
-        //                log.LogInformation($"Order ID: {manualOrder.atgOrderId}");
-
-        //                var atgOrderDoc = await OrderController.GetOrder<AtgOrderRes>(manualOrder.atgOrderId, documentClient);
-        //                AtgOrderRes atgOrder = (dynamic)atgOrderDoc;
-
-        //                await InitializeSourcingController(log).StartSourcing(documentClient, atgOrder);
-        //            }
-        //            catch (Exception ex)
-        //            {
-        //                var title = "Error in ReSourceBackorderedItems foreach loop.";
-        //                var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "yellow", errorLogsUrl);
-        //                teamsMessage.LogToTeams(teamsMessage);
-        //                log.LogError(ex, title);
-        //            }
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        var title = "Error in ReSourceBackorderedItems.";
-        //        var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", errorLogsUrl);
-        //        teamsMessage.LogToTeams(teamsMessage);
-        //        log.LogError(ex, title);
-        //    }
-        //}
-
-
         /// <summary>
         ///     Identifies atg-orders that do not exist in the orders container. If any are found, run the sourcing engine
         ///     and create the sourced order in the orders container.
