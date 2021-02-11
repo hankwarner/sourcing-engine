@@ -1058,9 +1058,14 @@ namespace FergusonSourcingEngine.Controllers
 
                 foreach (var branchNum in branchNumbers)
                 {
-                    itemController.inventory.InventoryDict[mpn].StockStatus.TryGetValue(branchNum, out bool stockingStatus);
+                    if (itemController.inventory.InventoryDict[mpn].StockStatus == null)
+                    {
+                        continue;
+                    }
 
-                    if (stockingStatus == true)
+                    itemController.inventory.InventoryDict[mpn].StockStatus.TryGetValue(branchNum, out bool itemStockStatus);
+
+                    if (itemStockStatus == true)
                     {
                         closestStockingLocation = branchNum;
                         break;
