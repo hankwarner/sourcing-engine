@@ -266,45 +266,6 @@ namespace FergusonSourcingEngine.Controllers
 
 
         /// <summary>
-        ///     Updates an existing ManualOrder based on the ATG Order values, but does not overwrite the existing claimed, completed or notes values.
-        /// </summary>
-        /// <param name="atgOrderRes">ATG Order with sourcing fields.</param>
-        /// <param name="manualOrderDoc">CosmosDB document that can be parsed to get the existing manual order.</param>
-        /// <returns>The updated ManualOrder object.</returns>
-        public ManualOrder UpdateManualOrder(AtgOrderRes atgOrderRes, Document manualOrderDoc)
-        {
-            try
-            {
-                ManualOrder existingManualOrder = (dynamic)manualOrderDoc;
-
-                var updatedManualOrder = new ManualOrder(atgOrderRes)
-                {
-                    // Do not overwrite values that can be set by an ATG rep
-                    claimed = existingManualOrder.claimed,
-                    timeClaimed = existingManualOrder.timeClaimed,
-                    orderComplete = existingManualOrder.orderComplete,
-                    timeCompleted = existingManualOrder.timeCompleted,
-                    notes = existingManualOrder.notes
-                };
-
-                SetLogons(updatedManualOrder);
-
-                return updatedManualOrder;
-            }
-            catch (Exception ex)
-            {
-                var title = $"Error in UpdateManualOrder. Order ID: {atgOrderRes.atgOrderId}.";
-                _logger.LogError(@"{Title} {Ex}", title, ex);
-#if RELEASE
-                var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", SourcingEngineFunctions.errorLogsUrl);
-                teamsMessage.LogToTeams(teamsMessage);
-#endif
-                throw;
-            }
-        }
-
-
-        /// <summary>
         ///     Sets the shipFromLogon value for each line item based on the shipFrom value.
         /// </summary>
         /// <param name="manualOrder">Manual Order object containing shipFrom values for each line item.</param>
