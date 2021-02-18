@@ -300,8 +300,8 @@ namespace FergusonSourcingEngine
         /// <param name="documents">The CosmosDB change feed that contains the added or updated order(s).</param>
         /// <param name="documentClient">CosmosDB Document Client for CRUD opertions on containers.</param>
         /// <param name="log">Used to write logs to Azure Moniter.</param>
-        [FunctionName("CreateOrUpdateManualOrder")]
-        public async Task CreateOrUpdateManualOrder(
+        [FunctionName("CreateManualOrder")]
+        public async Task CreateManualOrder(
             [CosmosDBTrigger(
                 databaseName: "sourcing-engine",
 #if RELEASE
@@ -314,7 +314,6 @@ namespace FergusonSourcingEngine
 #endif
                 ConnectionStringSetting = "AzureCosmosDBConnectionString",
                 CreateLeaseCollectionIfNotExists = true), SwaggerIgnore]IReadOnlyList<Document> documents,
-            //[HttpTrigger(AuthorizationLevel.Function, "post", Route = "order/manual"), RequestBodyType(typeof(AtgOrderRes), "request")] HttpRequest req,
             [CosmosDB(ConnectionStringSetting = "AzureCosmosDBConnectionString"), SwaggerIgnore] DocumentClient documentClient,
             ILogger log)
         {
@@ -324,9 +323,6 @@ namespace FergusonSourcingEngine
             {
                 try
                 {
-                    //var requestBody = new StreamReader(req.Body).ReadToEnd();
-                    //var atgOrderRes = JsonConvert.DeserializeObject<AtgOrderRes>(requestBody);
-
                     AtgOrderRes atgOrderRes = (dynamic)document;
                     log.LogInformation($"Order ID: {atgOrderRes.atgOrderId}");
 
@@ -344,25 +340,21 @@ namespace FergusonSourcingEngine
                     log.LogInformation(@"manualOrderDoc: {ManualOrderDoc}", manualOrderDoc);
                     var orderController = new OrderController(new LocationController(log));
 
-                    if (manualOrderDoc == null)
+                    if(manualOrderDoc != null)
                     {
-                        log.LogInformation("Creating new ManualOrder.");
-                        var manualOrder = orderController.CreateManualOrder(atgOrderRes);
-
-                        await documentClient.CreateDocumentAsync(uri, manualOrder);
+                        log.LogInformation("ManualOrder already exist. Exiting function.");
+                        return;
                     }
-                    else
-                    {
-                        log.LogInformation("Updating existing ManualOrder.");
-                        var updatedManualOrder = orderController.UpdateManualOrder(atgOrderRes, manualOrderDoc);
 
-                        await documentClient.ReplaceDocumentAsync(manualOrderDoc.SelfLink, updatedManualOrder);
-                    }
+                    log.LogInformation("Creating new ManualOrder.");
+                    var manualOrder = orderController.CreateManualOrder(atgOrderRes);
+
+                    await documentClient.CreateDocumentAsync(uri, manualOrder);
                 }
                 catch (Exception ex)
                 {
-                    var title = "Error in CreateOrUpdateManualOrder";
-                    log.LogError(ex, title);
+                    var title = "Error in CreateManualOrder";
+                    log.LogError(@"{0}: {1}", title, ex);
 #if RELEASE
                     var teamsMessage = new TeamsMessage(title, $"Error message: {ex.Message}. Stacktrace: {ex.StackTrace}", "red", errorLogsUrl);
                     teamsMessage.LogToTeams(teamsMessage);
