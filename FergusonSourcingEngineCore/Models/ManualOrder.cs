@@ -17,9 +17,13 @@ namespace FergusonSourcingCore.Models
             sourcingMessage = order.sourcingMessage;
             sourceSystem = order.sourceSystem;
             orderRequiredDate = order.orderRequiredDate;
-            trilogieErrorMessage = trilogieReq?.TrilogieErrorMessage ?? "";
-            trilogieOrderId = trilogieReq?.TrilogieOrderId ?? "";
-            trilogieStatus = trilogieReq?.TrilogieStatus.ToString() ?? "Waiting on Trilogie response.";
+
+            if (trilogieReq != null)
+            {
+                trilogieErrorMessage = trilogieReq.TrilogieErrorMessage;
+                trilogieOrderId = trilogieReq.TrilogieOrderId;
+                trilogieStatus = trilogieReq.TrilogieStatus.ToString();
+            }
 
             paymentOnAccount = new ManualPaymentOnAccount()
             {
@@ -101,9 +105,9 @@ namespace FergusonSourcingCore.Models
         public string sourceSystem { get; set; }
         public string id { get; set; }
         public string notes { get; set; }
-        public string trilogieErrorMessage { get; set; } = "";
-        public string trilogieStatus { get; set; } = "Waiting on Trilogie response.";
-        public string trilogieOrderId { get; set; } = "";
+        public string trilogieErrorMessage { get; set; }
+        public string trilogieStatus { get; set; }
+        public string trilogieOrderId { get; set; }
     }
 
     public partial class ManualPaymentOnAccount
