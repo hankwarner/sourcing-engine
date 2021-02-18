@@ -17,9 +17,13 @@ namespace FergusonSourcingCore.Models
             sourcingMessage = order.sourcingMessage;
             sourceSystem = order.sourceSystem;
             orderRequiredDate = order.orderRequiredDate;
-            trilogieErrorMessage = trilogieReq?.TrilogieErrorMessage ?? "";
-            trilogieOrderId = trilogieReq?.TrilogieOrderId ?? "";
-            trilogieStatus = trilogieReq?.TrilogieStatus.ToString() ?? "Waiting on Trilogie response.";
+
+            if (trilogieReq != null)
+            {
+                trilogieErrorMessage = trilogieReq.TrilogieErrorMessage;
+                trilogieOrderId = trilogieReq.TrilogieOrderId;
+                trilogieStatus = trilogieReq.TrilogieStatus.ToString();
+            }
 
             paymentOnAccount = new ManualPaymentOnAccount()
             {
